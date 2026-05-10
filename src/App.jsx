@@ -145,7 +145,7 @@ function LoginScreen({ onLogin }) {
     if (!email || !password) { setError("Please enter credentials."); return; }
     setLoading(true);
     setTimeout(() => {
-      if (email === "admin@pcbgroup.com" && password === "pcb2024") {
+      if (email === "YFried@pcgroupny.com" && password === "pcb2026") {
         onLogin({ name: "Admin User", email });
       } else {
         setError("Invalid credentials. Try admin@pcbgroup.com / pcb2024");
