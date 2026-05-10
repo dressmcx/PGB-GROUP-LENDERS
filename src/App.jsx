@@ -148,7 +148,7 @@ function LoginScreen({ onLogin }) {
       if (email === "Yfried@pcgroupny.com" && password === "pcb2026") {
         onLogin({ name: "Admin User", email });
       } else {
-        setError("Invalid credentials. Try admin@pcbgroup.com / pcb2024");
+        setError("Invalid credentials. Try Yfried@pcgroupny.com / pcb2026");
         setLoading(false);
       }
     }, 900);
