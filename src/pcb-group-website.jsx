@@ -72,7 +72,7 @@ const BROKER_TYPES = ["Direct Lender", "Correspondent", "Portfolio Lender", "Con
 // ── REAL PCB Logo ─────────────────────────────────────────────
 // Reads from public/pcb-logo.png — copy your logo file there.
 // darkBg=true applies a CSS filter to make the logo visible on dark backgrounds.
-function PCBLogo({ size = 120, darkBg = false }) {
+export default function PCBLogo({ size = 120, darkBg = false }) {
   return (
     <img
       src="/pcb-logo.png"
