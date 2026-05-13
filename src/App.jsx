@@ -13,7 +13,7 @@ const C = {
   dangerLight: "#fdf0ef",
 };
 
-// ── Mock Data ──────────────────────────────────────────────────
+// ── Mock Data ─────────────────────────────────────────────────
 const INITIAL_LENDERS = [
   {
     id: 1, category: "Permanent", location: "California",
@@ -65,24 +65,51 @@ const INITIAL_LENDERS = [
   },
 ];
 
-const CATEGORIES = ["Permanent", "Bridge to Perm", "Construction", "Owner Occupied"];
-const LOCATIONS = ["All Locations", "California", "Texas", "New York", "Florida"];
+const CATEGORIES  = ["Permanent", "Bridge to Perm", "Construction", "Owner Occupied"];
+const LOCATIONS   = ["All Locations", "California", "Texas", "New York", "Florida"];
 const BROKER_TYPES = ["Direct Lender", "Correspondent", "Portfolio Lender", "Construction Specialist", "Bank", "Credit Union", "Private"];
 
-// ── REAL PCB Logo ─────────────────────────────────────────────
-// Reads from public/pcb-logo.png — copy your logo file there.
-// darkBg=true applies a CSS filter to make the logo visible on dark backgrounds.
+// ── Shared style tokens ───────────────────────────────────────
+const inputStyle = {
+  width: "100%", padding: "13px 16px", background: "#2a2a2a",
+  border: `1px solid ${C.goldDark}44`, borderRadius: 2, color: C.ivory,
+  fontSize: 14, fontFamily: "Georgia, serif", letterSpacing: 0.5,
+  outline: "none", boxSizing: "border-box", display: "block",
+};
+const btnPrimary = {
+  width: "100%", marginTop: 20, padding: "14px", background: C.goldDark,
+  color: C.charcoal, border: "none", borderRadius: 2, fontSize: 13,
+  fontFamily: "Georgia, serif", letterSpacing: "3px", cursor: "pointer", fontWeight: "bold",
+};
+const btnSmall = {
+  padding: "6px 14px", background: C.ivory, border: `1px solid ${C.ivoryDark}`,
+  borderRadius: 2, cursor: "pointer", fontSize: 11, letterSpacing: 2,
+  color: C.charcoal, fontFamily: "Georgia, serif",
+};
+
+// ── "Delete" text-link style — replaces all trash icons ───────
+const deleteLink = {
+  background: "none", border: "none", padding: 0,
+  color: C.danger, fontSize: 12, fontFamily: "Georgia, serif",
+  letterSpacing: "1px", cursor: "pointer", textDecoration: "underline",
+  textUnderlineOffset: 3,
+};
+
+const selectStyle = {
+  padding: "10px 14px", background: C.bg, border: `1px solid ${C.ivoryDark}`,
+  borderRadius: 2, color: C.charcoal, fontSize: 13,
+  fontFamily: "Georgia, serif", cursor: "pointer",
+};
+const labelStyle = { color: "#888", fontSize: 10, letterSpacing: 2, marginBottom: 6 };
+
+// ── PCB Logo (real image from public/pcb-logo.png) ────────────
 function PCBLogo({ size = 120, darkBg = false }) {
   return (
     <img
       src="/pcb-logo.png"
       alt="PCB Group – Pyramid Capital Brokerage"
       style={{
-        width: size,
-        height: "auto",
-        display: "block",
-        objectFit: "contain",
-        // On dark backgrounds, render logo in gold tones
+        width: size, height: "auto", display: "block", objectFit: "contain",
         filter: darkBg
           ? "brightness(0) invert(1) sepia(1) saturate(1.2) hue-rotate(5deg) opacity(0.88)"
           : "none",
@@ -91,27 +118,28 @@ function PCBLogo({ size = 120, darkBg = false }) {
   );
 }
 
-// ── Delete Confirm Modal ───────────────────────────────────────
+// ── Delete Confirmation Modal ──────────────────────────────────
 function DeleteModal({ message, onConfirm, onCancel }) {
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 2000,
-      background: "rgba(0,0,0,0.55)", display: "flex",
+      background: "rgba(0,0,0,0.50)", display: "flex",
       alignItems: "center", justifyContent: "center", padding: 20,
     }}>
       <div style={{
         background: "white", borderRadius: 2, padding: "36px 32px",
-        maxWidth: 420, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+        maxWidth: 420, width: "100%",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
         border: `1px solid ${C.ivoryDark}`,
       }}>
-        <div style={{ fontSize: 32, marginBottom: 12, textAlign: "center" }}>🗑️</div>
         <h3 style={{
           margin: "0 0 12px", fontFamily: "Georgia, serif",
           color: C.charcoal, textAlign: "center", fontWeight: "normal", fontSize: 20,
         }}>Confirm Delete</h3>
-        <p style={{ color: "#666", fontSize: 14, lineHeight: 1.6, textAlign: "center", margin: "0 0 28px" }}>
-          {message}
-        </p>
+        <p style={{
+          color: "#666", fontSize: 14, lineHeight: 1.6,
+          textAlign: "center", margin: "0 0 28px",
+        }}>{message}</p>
         <div style={{ display: "flex", gap: 12 }}>
           <button onClick={onCancel} style={{
             flex: 1, padding: "12px", background: C.ivory,
@@ -131,37 +159,21 @@ function DeleteModal({ message, onConfirm, onCancel }) {
   );
 }
 
-// ── Floating Global Delete FAB ─────────────────────────────────
-function GlobalDeleteButton({ onClick }) {
-  const [hover, setHover] = useState(false);
+// ── "Delete All" text button (header row of lender list) ──────
+function DeleteAllButton({ onClick }) {
   return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      title="Delete all items in current view"
-      style={{
-        position: "fixed", bottom: 32, right: 32, zIndex: 500,
-        width: 56, height: 56, borderRadius: "50%",
-        background: hover ? C.danger : "#e74c3c",
-        border: "2px solid rgba(255,255,255,0.15)",
-        cursor: "pointer",
-        boxShadow: hover
-          ? "0 8px 32px rgba(192,57,43,0.55)"
-          : "0 4px 16px rgba(192,57,43,0.4)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 22, transition: "all 0.2s",
-        transform: hover ? "scale(1.12)" : "scale(1)",
-      }}
-    >
-      🗑️
-    </button>
+    <button onClick={onClick} style={{
+      background: "none", border: `1px solid #f5c6c2`,
+      borderRadius: 2, padding: "9px 16px",
+      color: C.danger, fontSize: 11, letterSpacing: 2,
+      fontFamily: "Georgia, serif", cursor: "pointer",
+    }}>DELETE ALL</button>
   );
 }
 
 // ── Splash Screen ─────────────────────────────────────────────
 function SplashScreen({ onEnter }) {
-  const [visible, setVisible] = useState(false);
+  const [visible,  setVisible]  = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
@@ -182,7 +194,7 @@ function SplashScreen({ onEnter }) {
         display: "flex", flexDirection: "column", alignItems: "center", gap: 20,
       }}>
         <PCBLogo size={260} darkBg={true} />
-        <div style={{ width: 60, height: 1, background: C.gold, opacity: 0.5, marginTop: 4 }} />
+        <div style={{ width: 60, height: 1, background: C.gold, opacity: 0.5 }} />
         <div style={{ color: C.ivoryDark, letterSpacing: "3px", fontSize: 11, opacity: 0.7 }}>
           PRIVATE LENDING PORTAL
         </div>
@@ -191,21 +203,21 @@ function SplashScreen({ onEnter }) {
   );
 }
 
-// ── Login ─────────────────────────────────────────────────────
+// ── Login Screen — fields blank by default ────────────────────
 function LoginScreen({ onLogin }) {
-  const [email, setEmail] = useState("YFried@pcgroupny.com");
-  const [password, setPassword] = useState("pcb2027");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [email,    setEmail]    = useState("");   // ← blank
+  const [password, setPassword] = useState("");   // ← blank
+  const [error,    setError]    = useState("");
+  const [loading,  setLoading]  = useState(false);
 
   const handleSubmit = () => {
-    if (!email || !password) { setError("Please enter credentials."); return; }
+    if (!email || !password) { setError("Please enter your email and password."); return; }
     setLoading(true);
     setTimeout(() => {
       if (email.toLowerCase() === "yfried@pcgroupny.com" && password === "pcb2027") {
         onLogin({ name: "Y. Fried", email });
       } else {
-        setError("Invalid credentials.");
+        setError("Invalid credentials. Please try again.");
         setLoading(false);
       }
     }, 900);
@@ -223,55 +235,57 @@ function LoginScreen({ onLogin }) {
         boxShadow: "0 0 60px rgba(0,0,0,0.6)",
         border: `1px solid ${C.goldDark}33`,
       }}>
-        <div style={{ textAlign: "center", marginBottom: 36, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        {/* Logo */}
+        <div style={{
+          display: "flex", flexDirection: "column",
+          alignItems: "center", gap: 14, marginBottom: 36,
+        }}>
           <PCBLogo size={200} darkBg={true} />
-          <div style={{ color: C.gold, letterSpacing: "5px", fontSize: 11 }}>PRIVATE PORTAL ACCESS</div>
+          <div style={{ color: C.gold, letterSpacing: "5px", fontSize: 11 }}>
+            PRIVATE PORTAL ACCESS
+          </div>
         </div>
 
+        {/* Email */}
         <input
-          type="email" placeholder="Email Address"
-          value={email} onChange={e => setEmail(e.target.value)}
+          type="email"
+          placeholder="Email Address"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
           onKeyDown={e => e.key === "Enter" && handleSubmit()}
           style={inputStyle}
         />
+
+        {/* Password */}
         <input
-          type="password" placeholder="Password"
-          value={password} onChange={e => setPassword(e.target.value)}
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
           onKeyDown={e => e.key === "Enter" && handleSubmit()}
           style={{ ...inputStyle, marginTop: 12 }}
         />
-        {error && <div style={{ color: "#e07070", fontSize: 12, marginTop: 8 }}>{error}</div>}
+
+        {error && (
+          <div style={{ color: "#e07070", fontSize: 12, marginTop: 10, letterSpacing: 0.3 }}>
+            {error}
+          </div>
+        )}
+
         <button onClick={handleSubmit} disabled={loading} style={btnPrimary}>
-          {loading ? "AUTHENTICATING..." : "SIGN IN"}
+          {loading ? "AUTHENTICATING…" : "SIGN IN"}
         </button>
-        <div style={{ textAlign: "center", marginTop: 20, color: C.gold, opacity: 0.4, fontSize: 10, letterSpacing: 2 }}>
+
+        <div style={{
+          textAlign: "center", marginTop: 20,
+          color: C.gold, opacity: 0.4, fontSize: 10, letterSpacing: 2,
+        }}>
           SECURED · ENCRYPTED · PRIVATE
         </div>
       </div>
     </div>
   );
 }
-
-const inputStyle = {
-  width: "100%", padding: "13px 16px", background: "#2a2a2a",
-  border: `1px solid ${C.goldDark}44`, borderRadius: 2, color: C.ivory,
-  fontSize: 14, fontFamily: "Georgia, serif", letterSpacing: 0.5,
-  outline: "none", boxSizing: "border-box", display: "block",
-};
-const btnPrimary = {
-  width: "100%", marginTop: 20, padding: "14px", background: C.goldDark,
-  color: C.charcoal, border: "none", borderRadius: 2, fontSize: 13,
-  fontFamily: "Georgia, serif", letterSpacing: "3px", cursor: "pointer", fontWeight: "bold",
-};
-const btnSmall = {
-  padding: "7px 16px", background: C.ivory, border: `1px solid ${C.ivoryDark}`,
-  borderRadius: 2, cursor: "pointer", fontSize: 11, letterSpacing: 2,
-  color: C.charcoal, fontFamily: "Georgia, serif",
-};
-const btnDanger = {
-  padding: "7px 14px", background: C.dangerLight, border: `1px solid #f5c6c2`,
-  borderRadius: 2, cursor: "pointer", fontSize: 12, color: C.danger,
-};
 
 // ── Header ────────────────────────────────────────────────────
 function Header({ user, onLogout, onHome }) {
@@ -297,8 +311,7 @@ function Header({ user, onLogout, onHome }) {
       </div>
     </header>
   );
-}
-
+      }
 // ── Dashboard ─────────────────────────────────────────────────
 function Dashboard({ lenders, onCategorySelect }) {
   const stats = CATEGORIES.map(cat => ({
@@ -820,4 +833,4 @@ export default function App() {
       </div>
     </div>
   );
-      }
+              }
