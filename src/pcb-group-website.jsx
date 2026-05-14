@@ -77,7 +77,7 @@ const INITIAL_LENDERS = [
 
 const CATEGORIES   = ["Permanent", "Bridge to Perm", "Construction", "Owner Occupied"];
 const LOCATIONS    = ["All Locations", "California", "Texas", "New York", "Florida"];
-const BROKER_TYPES = [
+const LENDER_TYPES = [
   "Direct Lender", "Correspondent", "Portfolio Lender",
   "Construction Specialist", "Bank", "Credit Union", "Private",
 ];
