@@ -121,10 +121,10 @@ function PCBLogo({ size = 120, darkBg = false }) {
       src="/pcb-logo.png"
       alt="PCB Group – Pyramid Capital Brokerage"
       style={{
-        width: size, height: "auto", display: "block", objectFit: "contain",
-        filter: darkBg
-          ? "brightness(0) invert(1) sepia(1) saturate(1.2) hue-rotate(5deg) opacity(0.88)"
-          : "none",
+        width: size,
+        height: "auto",
+        display: "block",
+        objectFit: "contain",
       }}
     />
   );
