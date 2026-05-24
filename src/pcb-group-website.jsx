@@ -653,5 +653,4 @@ function ClientForm({ initial, onSave, onCancel }) {
           border: "none", borderRadius: 12,
           cursor: "pointer", fontSize: 13, fontWeight: "bold", letterSpacing: 1,
         }}>
-          {initial ? "SAVE CHANGES" : "ADD CL 
-          });
+          
