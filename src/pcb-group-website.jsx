@@ -655,4 +655,3 @@ function ClientForm({ initial, onSave, onCancel }) {
         }}>
           {initial ? "SAVE CHANGES" : "ADD CL 
           });
-});
