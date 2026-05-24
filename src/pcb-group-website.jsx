@@ -716,10 +716,14 @@ function ClientCard({ client, onEdit, onDelete, onStageChange }) {
         </div>
 
         {/* Expanded detail */}
-        {expanded && (
-          <div className="anim-fade-up" style={{ padding: "0 16px 18px", borderTop: `1px solid ${C.ivory}` }}>
-            {/* Pipeline visual */}
-            <div style={{ marginTop: 14, marginBottom: 14, overflowX: "auto" }}>
-              <DealPipeline currentStage={client.dealStage} />
+                      </div>
             </div>
-            )})
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default YourComponentName;
+
