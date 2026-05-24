@@ -726,4 +726,4 @@ function ClientCard({ client, onEdit, onDelete, onStageChange }) {
 };
 
 export default YourComponentName;
-}
+};
