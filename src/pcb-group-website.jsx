@@ -267,9 +267,10 @@ function LoginScreen({ onLogin }) {
 
   return (
     <div style={{
-      minHeight: "100vh", background: C.charcoal,
+      minHeight: "100vh", height: "100vh", background: C.charcoal,
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: "20px", fontFamily: "Georgia, serif",
+      position: "fixed", inset: 0,
     }}>
       <div className="anim-fade-up" style={{
         background: "#222", borderRadius: 16, padding: "40px 32px",
@@ -618,26 +619,17 @@ function ClientForm({ initial, onSave, onCancel }) {
         <DealPipeline currentStage={form.dealStage} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <FormField label="Full Name" value={form.fullName} onChange={v => set("fullName", v)} required span2 />
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <FormField label="Full Name" value={form.fullName} onChange={v => set("fullName", v)} required />
         <FormField label="Phone" type="tel" value={form.phone} onChange={v => set("phone", v)} />
         <FormField label="Email" type="email" value={form.email} onChange={v => set("email", v)} />
-        <FormField label="Address" value={form.address} onChange={v => set("address", v)} span2 />
-
-        <SelectField label="Deal Stage" value={form.dealStage} onChange={v => set("dealStage", v)}
-          options={DEAL_STAGES} />
-        <SelectField label="Payment Status" value={form.paymentStatus} onChange={v => set("paymentStatus", v)}
-          options={PAYMENT_STATUSES} />
-
-        <FormField label="Payment Amount ($)" type="number" value={form.paymentAmount}
-          onChange={v => set("paymentAmount", v)} />
-
-        <FileField label="ID / Passport" fileName={form.idFileName}
-          onChange={v => set("idFileName", v)} />
-        <FileField label="Contract / Document" fileName={form.contractFileName}
-          onChange={v => set("contractFileName", v)} />
-
-        <FormField label="Notes / Comments" value={form.notes} onChange={v => set("notes", v)} textarea span2 />
+        <FormField label="Address" value={form.address} onChange={v => set("address", v)} />
+        <SelectField label="Deal Stage" value={form.dealStage} onChange={v => set("dealStage", v)} options={DEAL_STAGES} />
+        <SelectField label="Payment Status" value={form.paymentStatus} onChange={v => set("paymentStatus", v)} options={PAYMENT_STATUSES} />
+        <FormField label="Payment Amount ($)" type="number" value={form.paymentAmount} onChange={v => set("paymentAmount", v)} />
+        <FileField label="ID / Passport" fileName={form.idFileName} onChange={v => set("idFileName", v)} />
+        <FileField label="Contract / Document" fileName={form.contractFileName} onChange={v => set("contractFileName", v)} />
+        <FormField label="Notes / Comments" value={form.notes} onChange={v => set("notes", v)} textarea />
       </div>
 
       <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
@@ -1292,13 +1284,13 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   return (
-    <div style={{ padding: "20px 16px 90px", maxWidth: 700, margin: "0 auto" }}>
+    <div style={{ padding: "20px 16px 90px", maxWidth: 560, margin: "0 auto" }}>
       <h2 style={{ color: C.charcoal, margin: "0 0 24px", fontSize: 22, fontFamily: "Georgia, serif", fontWeight: "normal" }}>
         {initial ? "Edit Lender" : "Add New Lender"}
       </h2>
       <div style={{ background: "white", border: `1px solid ${C.ivoryDark}`, borderRadius: 14, padding: "24px 20px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <FormField label="Bank / Institution Name" value={form.bankName} onChange={v => set("bankName", v)} required span2 />
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <FormField label="Bank / Institution Name" value={form.bankName} onChange={v => set("bankName", v)} required />
           <FormField label="Contact Name" value={form.contactName} onChange={v => set("contactName", v)} />
           <FormField label="Email" type="email" value={form.email} onChange={v => set("email", v)} />
           <FormField label="Phone" value={form.phone} onChange={v => set("phone", v)} />
@@ -1310,7 +1302,7 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
           <FormField label="Interest Rate (%)" type="number" step="0.01" value={form.rate} onChange={v => set("rate", v)} />
           <FormField label="Min Loan ($)" type="number" value={form.minLoan} onChange={v => set("minLoan", v)} />
           <FormField label="Max Loan ($)" type="number" value={form.maxLoan} onChange={v => set("maxLoan", v)} />
-          <FormField label="Notes" value={form.notes} onChange={v => set("notes", v)} textarea span2 />
+          <FormField label="Notes" value={form.notes} onChange={v => set("notes", v)} textarea />
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
           <button onClick={onCancel} className="btn-transition" style={{ flex: 1, padding: "13px", background: "white", border: `1.5px solid ${C.ivoryDark}`, borderRadius: 12, cursor: "pointer", fontSize: 13, color: C.charcoal }}>Cancel</button>
@@ -1459,4 +1451,4 @@ export default function App() {
       </div>
     </>
   );
-      }
+        }
