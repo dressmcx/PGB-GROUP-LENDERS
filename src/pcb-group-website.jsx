@@ -1365,8 +1365,8 @@ export default function App() {
     if (formMode === "edit") {
       setLenders(ls => ls.map(l => l.id === editingLender.id ? { ...form, id: editingLender.id } : l));
     } else {
-      setLenders(ls => [...ls, { ...form, id: Date.now() }]);
-    }
+  setLenders(ls => [...ls, { ...form, id: lenders.length + 1 }]);
+}
     setView("lenders");
   };
 
