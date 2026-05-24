@@ -722,4 +722,4 @@ function ClientCard({ client, onEdit, onDelete, onStageChange }) {
             <div style={{ marginTop: 14, marginBottom: 14, overflowX: "auto" }}>
               <DealPipeline currentStage={client.dealStage} />
             </div>
-            }
+            )})
