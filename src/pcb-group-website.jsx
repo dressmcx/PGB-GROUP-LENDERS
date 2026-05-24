@@ -1375,8 +1375,7 @@ export default function App() {
     if (editingClient) {
       setClients(cs => cs.map(c => c.id === editingClient.id ? { ...form, id: editingClient.id, createdAt: editingClient.createdAt } : c));
     } else {
-  const nextId = lenders.length > 0 ? Math.max(...lenders.map(l => Number(l.id) || 0)) + 1 : 1;
-  setLenders(ls => [...ls, { ...form, id: nextId }]);
+  const nextId = client.length > 0 ? Math.max(...clients.map(l => Number(l.id) || 0)) + 1 : 1;
 }
     setClientFormOpen(false);
     setEditingClient(null);
