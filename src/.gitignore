@@ -1,0 +1,11 @@
+# Environment variables - NEVER commit this to GitHub
+.env
+.env.local
+.env.production
+
+# Dependencies
+node_modules/
+
+# Build output
+build/
+dist/
