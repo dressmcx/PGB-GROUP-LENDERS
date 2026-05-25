@@ -1,4 +1,25 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+
+// ─────────────────────────────────────────────────────────────
+// GOOGLE MAPS CONFIG
+// ─────────────────────────────────────────────────────────────
+const GOOGLE_API_KEY = "AIzaSyDPlnutf69kQe9ISeKCQ4Hcpi-PAwH42yE";
+
+// Loads the Google Maps Places script once
+function useGooglePlaces() {
+  const [ready, setReady] = useState(!!window.google?.maps?.places);
+  useEffect(() => {
+    if (window.google?.maps?.places) { setReady(true); return; }
+    if (document.getElementById("gmap-script")) return;
+    const script = document.createElement("script");
+    script.id  = "gmap-script";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places`;
+    script.async = true;
+    script.onload = () => setReady(true);
+    document.head.appendChild(script);
+  }, []);
+  return ready;
+}
 
 // ─────────────────────────────────────────────────────────────
 // BRAND TOKENS
@@ -474,6 +495,68 @@ function BottomNav({ activeNav, onNavigate, userRole }) {
 // FORM FIELDS
 // ─────────────────────────────────────────────────────────────
 const fieldLabel = { color: "#888", fontSize: 10, letterSpacing: 2, marginBottom: 6 };
+
+// Google Places Address Autocomplete Field
+function AddressField({ label = "Address", value, onChange, span2 }) {
+  const placesReady = useGooglePlaces();
+  const inputRef    = useRef(null);
+  const acRef       = useRef(null);
+  const [inputVal, setInputVal] = useState(value || "");
+
+  // Keep local state in sync if parent resets form
+  useEffect(() => { setInputVal(value || ""); }, [value]);
+
+  useEffect(() => {
+    if (!placesReady || !inputRef.current || acRef.current) return;
+    acRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
+      types: ["address"],
+      fields: ["formatted_address"],
+    });
+    acRef.current.addListener("place_changed", () => {
+      const place = acRef.current.getPlace();
+      const addr  = place?.formatted_address || inputRef.current.value;
+      setInputVal(addr);
+      onChange(addr);
+    });
+  }, [placesReady]);
+
+  return (
+    <div style={span2 ? { gridColumn: "1/-1" } : {}}>
+      <div style={fieldLabel}>
+        {label.toUpperCase()}
+        {placesReady
+          ? <span style={{ color: "#2d7a4f", marginLeft: 6, fontSize: 9 }}>📍 Google Maps</span>
+          : <span style={{ color: "#bbb", marginLeft: 6, fontSize: 9 }}>Loading maps…</span>}
+      </div>
+      <div style={{ position: "relative" }}>
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputVal}
+          placeholder="Start typing an address…"
+          onChange={e => {
+            setInputVal(e.target.value);
+            // Allow clearing the field manually
+            if (e.target.value === "") onChange("");
+          }}
+          style={{
+            ...inputStyle,
+            paddingLeft: 38,
+          }}
+        />
+        <span style={{
+          position: "absolute", left: 13, top: "50%",
+          transform: "translateY(-50%)", fontSize: 15, pointerEvents: "none",
+        }}>📍</span>
+      </div>
+      {!placesReady && (
+        <div style={{ fontSize: 10, color: "#bbb", marginTop: 4 }}>
+          Connecting to Google Maps…
+        </div>
+      )}
+    </div>
+  );
+}
 const inputStyle = {
   width: "100%", padding: "13px 14px",
   background: C.bg, border: `1.5px solid ${C.ivoryDark}`,
@@ -626,7 +709,7 @@ function ClientForm({ initial, onSave, onCancel }) {
         <FormField label="Full Name" value={form.fullName} onChange={v => set("fullName", v)} required span2 />
         <FormField label="Phone" type="tel" value={form.phone} onChange={v => set("phone", v)} />
         <FormField label="Email" type="email" value={form.email} onChange={v => set("email", v)} />
-        <FormField label="Address" value={form.address} onChange={v => set("address", v)} span2 />
+        <AddressField label="Address" value={form.address} onChange={v => set("address", v)} span2 />
 
         <SelectField label="Deal Stage" value={form.dealStage} onChange={v => set("dealStage", v)} options={DEAL_STAGES} />
         <SelectField label="Payment Status" value={form.paymentStatus} onChange={v => set("paymentStatus", v)} options={PAYMENT_STATUSES} />
@@ -728,7 +811,9 @@ function ClientCard({ client, onEdit, onDelete, onStageChange }) {
               {client.address && (
                 <div style={{ gridColumn: "1/-1" }}>
                   <div style={{ ...fieldLabel, marginBottom: 3 }}>ADDRESS</div>
-                  <div style={{ color: C.charcoal, fontSize: 13 }}>{client.address}</div>
+                  <a href={`https://maps.google.com/?q=${encodeURIComponent(client.address)}`} target="_blank" rel="noopener noreferrer" style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>
+                    📍 {client.address}
+                  </a>
                 </div>
               )}
               <div>
@@ -1085,6 +1170,7 @@ function LenderCard({ lender, onEdit, onDelete }) {
         {expanded && (
           <div className="anim-fade-up" style={{ padding: "4px 16px 18px", borderTop: `1px solid ${C.ivory}` }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginTop: 14 }}>
+              {lender.address  && <div style={{ gridColumn: "1/-1" }}><div style={fieldLabel}>ADDRESS</div><a href={`https://maps.google.com/?q=${encodeURIComponent(lender.address)}`} target="_blank" rel="noopener noreferrer" style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>📍 {lender.address}</a></div>}
               {lender.email    && <div><div style={fieldLabel}>EMAIL</div><a href={`mailto:${lender.email}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{lender.email}</a></div>}
               {lender.phone    && <div><div style={fieldLabel}>PHONE</div><a href={`tel:${lender.phone}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{lender.phone}</a></div>}
               {lender.assistantPhone && <div><div style={fieldLabel}>ASSISTANT ({lender.assistantName})</div><a href={`tel:${lender.assistantPhone}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{lender.assistantPhone}</a></div>}
@@ -1252,6 +1338,7 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
   const [form, setForm] = useState(initial || {
     category: defaultCategory || "Permanent",
     location: defaultLocation === "All Locations" ? "" : (defaultLocation || ""),
+    address: "",
     bankName: "", contactName: "", email: "", phone: "",
     assistantPhone: "", assistantName: "",
     lenderType: "Direct Lender",
@@ -1274,6 +1361,7 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
           <FormField label="Assistant Phone" value={form.assistantPhone} onChange={v => set("assistantPhone", v)} />
           <SelectField label="Category" value={form.category} onChange={v => set("category", v)} options={CATEGORIES} />
           <SelectField label="Lender Type" value={form.lenderType} onChange={v => set("lenderType", v)} options={LENDER_TYPES} />
+          <AddressField label="Address / Location" value={form.address || ""} onChange={v => set("address", v)} span2 />
           <FormField label="Location / State" value={form.location} onChange={v => set("location", v)} />
           <FormField label="Interest Rate (%)" type="number" step="0.01" value={form.rate} onChange={v => set("rate", v)} />
           <FormField label="Min Loan ($)" type="number" value={form.minLoan} onChange={v => set("minLoan", v)} />
@@ -1586,4 +1674,4 @@ export default function App() {
       </div>
     </>
   );
-                }
+   }
