@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 // ─────────────────────────────────────────────────────────────
 // GOOGLE MAPS CONFIG
 // ─────────────────────────────────────────────────────────────
-const GOOGLE_API_KEY = "AIzaSyDPlnutf69kQe9ISeKCQ4Hcpi-PAwH42yE";
+const GOOGLE_API_KEY = process.env.REACT_APP_GOOGLE_API_KEY;
 
 // Loads the Google Maps Places script once
 function useGooglePlaces() {
@@ -508,17 +508,30 @@ function AddressField({ label = "Address", value, onChange, span2 }) {
 
   useEffect(() => {
     if (!placesReady || !inputRef.current || acRef.current) return;
-    acRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
-      types: ["address"],
-      fields: ["formatted_address"],
-    });
-    acRef.current.addListener("place_changed", () => {
-      const place = acRef.current.getPlace();
-      const addr  = place?.formatted_address || inputRef.current.value;
-      setInputVal(addr);
-      onChange(addr);
-    });
+    try {
+      acRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
+        types: ["address"],
+        fields: ["formatted_address"],
+      });
+      acRef.current.addListener("place_changed", () => {
+        const place = acRef.current.getPlace();
+        const addr  = place?.formatted_address || inputRef.current.value;
+        setInputVal(addr);
+        onChange(addr);
+      });
+    } catch(e) {
+      // Places API unavailable — fall back to manual input
+    }
   }, [placesReady]);
+
+  const handleChange = e => {
+    setInputVal(e.target.value);
+    onChange(e.target.value); // persist every keystroke so manual entry always saves
+  };
+
+  const handleBlur = () => {
+    if (inputVal.trim()) onChange(inputVal.trim());
+  };
 
   return (
     <div style={span2 ? { gridColumn: "1/-1" } : {}}>
@@ -526,7 +539,7 @@ function AddressField({ label = "Address", value, onChange, span2 }) {
         {label.toUpperCase()}
         {placesReady
           ? <span style={{ color: "#2d7a4f", marginLeft: 6, fontSize: 9 }}>📍 Google Maps</span>
-          : <span style={{ color: "#bbb", marginLeft: 6, fontSize: 9 }}>Loading maps…</span>}
+          : <span style={{ color: "#bbb", marginLeft: 6, fontSize: 9 }}>📍 Address</span>}
       </div>
       <div style={{ position: "relative" }}>
         <input
@@ -534,26 +547,15 @@ function AddressField({ label = "Address", value, onChange, span2 }) {
           type="text"
           value={inputVal}
           placeholder="Start typing an address…"
-          onChange={e => {
-            setInputVal(e.target.value);
-            // Allow clearing the field manually
-            if (e.target.value === "") onChange("");
-          }}
-          style={{
-            ...inputStyle,
-            paddingLeft: 38,
-          }}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          style={{ ...inputStyle, paddingLeft: 38 }}
         />
         <span style={{
           position: "absolute", left: 13, top: "50%",
           transform: "translateY(-50%)", fontSize: 15, pointerEvents: "none",
         }}>📍</span>
       </div>
-      {!placesReady && (
-        <div style={{ fontSize: 10, color: "#bbb", marginTop: 4 }}>
-          Connecting to Google Maps…
-        </div>
-      )}
     </div>
   );
 }
@@ -1674,4 +1676,4 @@ export default function App() {
       </div>
     </>
   );
-   }
+            }
