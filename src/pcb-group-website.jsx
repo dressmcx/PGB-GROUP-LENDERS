@@ -46,14 +46,15 @@ const C = {
 // DEAL STAGES
 // ─────────────────────────────────────────────────────────────
 const DEAL_STAGES = [
-  { id: "new_lead",          label: "New Lead",            color: "#6B7280", bg: "#F3F4F6", icon: "✦" },
-  { id: "pending_docs",      label: "Pending Documents",   color: "#B8762A", bg: "#FEF8EE", icon: "📋" },
-  { id: "waiting_payment",   label: "Waiting for Payment", color: "#8B5CF6", bg: "#F5F3FF", icon: "⏳" },
-  { id: "payment_received",  label: "Payment Received",    color: "#2D7A4F", bg: "#EDF7F2", icon: "✓" },
-  { id: "in_review",         label: "In Review",           color: "#2C5F8A", bg: "#EEF4FB", icon: "🔍" },
-  { id: "approved",          label: "Approved",            color: "#1A6B3C", bg: "#D1FAE5", icon: "✅" },
-  { id: "closed_deal",       label: "Closed Deal",         color: "#92400E", bg: "#FEF3C7", icon: "🏆" },
-  { id: "cancelled",         label: "Cancelled",           color: "#991B1B", bg: "#FEE2E2", icon: "✗" },
+  { id: "intake",       label: "Initial Intake & Preparation", color: "#6B7280", bg: "#F3F4F6", icon: "📥" },
+  { id: "quote",        label: "Lender Quote Requests",        color: "#B8762A", bg: "#FEF8EE", icon: "💬" },
+  { id: "term_sheet",   label: "Term Sheet Review",            color: "#8B5CF6", bg: "#F5F3FF", icon: "📄" },
+  { id: "underwriting", label: "Lender Underwriting",          color: "#2C5F8A", bg: "#EEF4FB", icon: "🔍" },
+  { id: "reports",      label: "Order & Review Reports",       color: "#B45309", bg: "#FFFBEB", icon: "📊" },
+  { id: "commitment",   label: "Loan Commitment Issued",       color: "#2D7A4F", bg: "#EDF7F2", icon: "✅" },
+  { id: "pre_closing",  label: "Pre-Closing Checklist",        color: "#1D4ED8", bg: "#EFF6FF", icon: "☑️" },
+  { id: "closed",       label: "Approval & Closing",           color: "#92400E", bg: "#FEF3C7", icon: "🏆" },
+  { id: "cancelled",    label: "Cancelled",                    color: "#991B1B", bg: "#FEE2E2", icon: "✗" },
 ];
 
 const PAYMENT_STATUSES = [
@@ -76,13 +77,21 @@ const INITIAL_LENDERS = [
 ];
 
 const INITIAL_CLIENTS = [
-  { id: 1, fullName: "Michael Torres", phone: "(212) 555-0910", email: "m.torres@email.com", address: "45 Park Ave, New York, NY 10016", dealStage: "approved", paymentStatus: "paid", paymentAmount: 15000, notes: "Fast mover. Docs all verified. Preferred client.", idFileName: "torres_passport.pdf", contractFileName: "torres_contract.pdf", createdAt: "2025-01-15" },
-  { id: 2, fullName: "Rachel Kim", phone: "(310) 555-0234", email: "r.kim@email.com", address: "820 Wilshire Blvd, Los Angeles, CA 90017", dealStage: "pending_docs", paymentStatus: "not_paid", paymentAmount: 8500, notes: "Waiting on ID scan.", idFileName: "", contractFileName: "", createdAt: "2025-02-03" },
-  { id: 3, fullName: "David Schwartz", phone: "(305) 555-0567", email: "d.schwartz@email.com", address: "200 Biscayne Blvd, Miami, FL 33131", dealStage: "in_review", paymentStatus: "partial", paymentAmount: 22000, notes: "Complex deal. Multi-unit residential.", idFileName: "schwartz_id.jpg", contractFileName: "schwartz_agreement.pdf", createdAt: "2025-02-18" },
-  { id: 4, fullName: "Linda Park", phone: "(713) 555-0811", email: "l.park@email.com", address: "900 Travis St, Houston, TX 77002", dealStage: "closed_deal", paymentStatus: "paid", paymentAmount: 31000, notes: "Deal closed. Excellent experience.", idFileName: "park_passport.pdf", contractFileName: "park_contract_final.pdf", createdAt: "2025-01-08" },
+  { id: 1, fullName: "Michael Torres", phone: "(212) 555-0910", email: "m.torres@email.com", address: "45 Park Ave, New York, NY 10016", dealStage: "commitment", paymentStatus: "paid", paymentAmount: 15000, notes: "Fast mover. Docs all verified. Preferred client.", idFileName: "torres_passport.pdf", contractFileName: "torres_contract.pdf", createdAt: "2025-01-15" },
+  { id: 2, fullName: "Rachel Kim", phone: "(310) 555-0234", email: "r.kim@email.com", address: "820 Wilshire Blvd, Los Angeles, CA 90017", dealStage: "intake", paymentStatus: "not_paid", paymentAmount: 8500, notes: "Waiting on ID scan.", idFileName: "", contractFileName: "", createdAt: "2025-02-03" },
+  { id: 3, fullName: "David Schwartz", phone: "(305) 555-0567", email: "d.schwartz@email.com", address: "200 Biscayne Blvd, Miami, FL 33131", dealStage: "underwriting", paymentStatus: "partial", paymentAmount: 22000, notes: "Complex deal. Multi-unit residential.", idFileName: "schwartz_id.jpg", contractFileName: "schwartz_agreement.pdf", createdAt: "2025-02-18" },
+  { id: 4, fullName: "Linda Park", phone: "(713) 555-0811", email: "l.park@email.com", address: "900 Travis St, Houston, TX 77002", dealStage: "closed", paymentStatus: "paid", paymentAmount: 31000, notes: "Deal closed. Excellent experience.", idFileName: "park_passport.pdf", contractFileName: "park_contract_final.pdf", createdAt: "2025-01-08" },
 ];
 
-const CATEGORIES   = ["Permanent", "Bridge to Perm", "Construction", "Owner Occupied"];
+const INITIAL_ORGS = [
+  { id: 1, name: "Skyline Capital Group", owner: "James Whitfield", sponsor: "First National Trust", sponsor2: "", officeContact: "(212) 555-0100", mgmtContact: "Realty Mgmt LLC", assistance: "Lisa Brown", loanOfficer: "David Chen", address: "350 5th Ave, New York, NY 10118", entityType: "LLC", visibleTo: "All", label: "Primary", phones: [{ number: "(212) 555-0100", tag: "Work" }], emails: ["j.whitfield@skyline.com"] },
+];
+
+const INITIAL_DEALS = [
+  { id: 1, contactId: 1, orgId: 1, address: "45 Park Ave, New York, NY 10016", value: 2500000, closingDate: "2025-06-30", owner: "Y. Fried", label: "Primary", createdAt: "2025-01-15" },
+];
+
+const CATEGORIES   = ["Permanent", "Bridge to Perm", "Construction", "Owner Occupied", "Hard Money"];
 const LOCATIONS    = ["All Locations", "California", "Texas", "New York", "Florida"];
 const LENDER_TYPES = ["Direct Lender", "Correspondent", "Portfolio Lender", "Construction Specialist", "Bank", "Credit Union", "Private"];
 
@@ -407,9 +416,11 @@ function Header({ user, onLogout, onHome, onMenuToggle, sidebarOpen }) {
 function Sidebar({ activeNav, onNavigate, isOpen, onClose, userRole }) {
   const mainLinks = [
     ...(userRole === "manager" ? [{ id: "dashboard", label: "Dashboard", icon: "◈" }] : []),
-    { id: "clients",    label: "Clients",  icon: "👤" },
-    { id: "categories", label: "Lenders",  icon: "⊞" },
-    { id: "search",     label: "Search",   icon: "⌕" },
+    { id: "clients",    label: "Clients",       icon: "👤" },
+    { id: "orgs",       label: "Organizations", icon: "🏢" },
+    { id: "deals",      label: "Deals",         icon: "🤝" },
+    { id: "categories", label: "Lenders",       icon: "⊞" },
+    { id: "search",     label: "Search",        icon: "⌕" },
     ...(userRole === "manager" ? [{ id: "settings", label: "Settings", icon: "⚙" }] : []),
   ];
 
@@ -461,8 +472,9 @@ function BottomNav({ activeNav, onNavigate, userRole }) {
   const items = [
     ...(userRole === "manager" ? [{ id: "dashboard", label: "Home", icon: "◈" }] : []),
     { id: "clients",    label: "Clients", icon: "👤" },
+    { id: "orgs",       label: "Orgs",    icon: "🏢" },
+    { id: "deals",      label: "Deals",   icon: "🤝" },
     { id: "categories", label: "Lenders", icon: "⊞" },
-    { id: "search",     label: "Search",  icon: "⌕" },
     ...(userRole === "manager" ? [{ id: "settings", label: "Settings", icon: "⚙" }] : []),
   ];
   return (
@@ -681,7 +693,7 @@ function ClientForm({ initial, onSave, onCancel }) {
     fullName: "", phone: "", email: "", address: "",
     idFileName: "", contractFileName: "",
     notes: "", paymentAmount: "", paymentStatus: "not_paid",
-    dealStage: "new_lead",
+    dealStage: "intake",
   };
   const [form, setForm] = useState(initial ? { ...initial, paymentAmount: initial.paymentAmount || "" } : blank);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -748,8 +760,9 @@ function ClientForm({ initial, onSave, onCancel }) {
 // CLIENT CARD
 // ─────────────────────────────────────────────────────────────
 function ClientCard({ client, onEdit, onDelete, onStageChange }) {
-  const [expanded, setExpanded]         = useState(false);
+  const [expanded, setExpanded]           = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingStage, setPendingStage]   = useState(null);
   const s = stageInfo(client.dealStage);
 
   return (
@@ -844,18 +857,30 @@ function ClientCard({ client, onEdit, onDelete, onStageChange }) {
               <div style={{ ...fieldLabel, marginBottom: 6 }}>QUICK UPDATE STAGE</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {DEAL_STAGES.map(ds => (
-                  <button key={ds.id} onClick={() => { onStageChange(client.id, ds.id); }} className="btn-transition"
+                  <button key={ds.id} onClick={() => {
+                    if (client.dealStage === ds.id) return;
+                    setPendingStage(ds);
+                  }} className="btn-transition"
                     style={{
                       padding: "5px 10px", borderRadius: 20, border: `1px solid ${ds.color}44`,
                       background: client.dealStage === ds.id ? ds.color : ds.bg,
                       color: client.dealStage === ds.id ? "white" : ds.color,
                       cursor: "pointer", fontSize: 10, fontFamily: "Georgia, serif",
                     }}>
-                    {ds.label}
+                    {ds.icon} {ds.label}
                   </button>
                 ))}
               </div>
             </div>
+            {pendingStage && (
+              <ConfirmModal
+                title="Update Deal Stage"
+                message={`Move "${client.fullName}" to "${pendingStage.label}"? This will update their deal progress.`}
+                confirmLabel="Update Stage"
+                onConfirm={() => { onStageChange(client.id, pendingStage.id); setPendingStage(null); }}
+                onCancel={() => setPendingStage(null)}
+              />
+            )}
 
             <div style={{ display: "flex", gap: 8, paddingTop: 14, borderTop: `1px solid ${C.ivory}` }}>
               <button onClick={e => { e.stopPropagation(); onEdit(client); }} className="btn-transition" style={{
@@ -1007,7 +1032,7 @@ function ClientsView({ clients, onAdd, onEdit, onDelete, onStageChange }) {
 // ─────────────────────────────────────────────────────────────
 // DASHBOARD
 // ─────────────────────────────────────────────────────────────
-function Dashboard({ lenders, clients, onCategorySelect, onNavigate, user }) {
+function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user }) {
   const stats = CATEGORIES.map(cat => ({
     cat, count: lenders.filter(l => l.category === cat).length,
     avgRate: lenders.filter(l => l.category === cat).reduce((a, l) => a + l.rate, 0) /
@@ -1037,10 +1062,10 @@ function Dashboard({ lenders, clients, onCategorySelect, onNavigate, user }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 24 }}>
         {[
-          { label: "Total Clients", value: clients.length,       color: C.goldDark, icon: "👤" },
-          { label: "Active Deals",  value: activeDeals,          color: C.info,     icon: "🔄" },
-          { label: "Pipeline",      value: fmt$(totalPipeline),  color: C.goldDark, icon: "💰" },
-          { label: "Collected",     value: fmt$(paidTotal),      color: C.success,  icon: "✓" },
+          { label: "Total Clients",  value: clients.length,                                          color: C.goldDark, icon: "👤" },
+          { label: "Total Deals",    value: (deals||[]).length,                                       color: C.info,     icon: "🤝" },
+          { label: "Deal Pipeline",  value: fmt$((deals||[]).reduce((s,d)=>s+(d.value||0),0)),        color: C.goldDark, icon: "💰" },
+          { label: "Collected",      value: fmt$(paidTotal),                                          color: C.success,  icon: "✓" },
         ].map((kpi, i) => (
           <div key={i} className="card-hover" style={{
             background: "white", borderRadius: 14, padding: "16px",
@@ -1176,6 +1201,8 @@ function LenderCard({ lender, onEdit, onDelete }) {
               {lender.email    && <div><div style={fieldLabel}>EMAIL</div><a href={`mailto:${lender.email}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{lender.email}</a></div>}
               {lender.phone    && <div><div style={fieldLabel}>PHONE</div><a href={`tel:${lender.phone}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{lender.phone}</a></div>}
               {lender.assistantPhone && <div><div style={fieldLabel}>ASSISTANT ({lender.assistantName})</div><a href={`tel:${lender.assistantPhone}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{lender.assistantPhone}</a></div>}
+              {lender.assistanceEmail && <div><div style={fieldLabel}>ASSISTANCE EMAIL</div><a href={`mailto:${lender.assistanceEmail}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{lender.assistanceEmail}</a></div>}
+              {lender.termsFileName && <div><div style={fieldLabel}>TERMS & CONDITIONS</div><div style={{ color: C.goldDark, fontSize: 12 }}>📋 {lender.termsFileName}</div></div>}
               <div><div style={fieldLabel}>TYPE</div><div style={{ color: C.charcoal, fontSize: 13 }}>{lender.lenderType}</div></div>
               <div><div style={fieldLabel}>MIN LOAN</div><div style={{ color: C.charcoal, fontSize: 13 }}>${(lender.minLoan/1e6).toFixed(1)}M</div></div>
               <div><div style={fieldLabel}>MAX LOAN</div><div style={{ color: C.charcoal, fontSize: 13 }}>${(lender.maxLoan/1e6).toFixed(1)}M</div></div>
@@ -1213,8 +1240,8 @@ function LenderCard({ lender, onEdit, onDelete }) {
 // LENDER LIST / LOCATION / CATEGORY
 // ─────────────────────────────────────────────────────────────
 function CategorySelect({ onSelect }) {
-  const icons = ["🏢","🔄","🏗️","🏠"];
-  const descs = ["Long-term financing","Bridge to permanent","Ground-up construction","Owner-occupied commercial"];
+  const icons = ["🏢","🔄","🏗️","🏠","💸"];
+  const descs = ["Long-term financing","Bridge to permanent","Ground-up construction","Owner-occupied commercial","Short-term hard money loans"];
   return (
     <div style={{ padding: "20px 16px 90px", maxWidth: 900, margin: "0 auto", width: "100%" }}>
       <div style={{ marginBottom: 24 }}>
@@ -1342,8 +1369,9 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
     location: defaultLocation === "All Locations" ? "" : (defaultLocation || ""),
     address: "",
     bankName: "", contactName: "", email: "", phone: "",
-    assistantPhone: "", assistantName: "",
+    assistantPhone: "", assistantName: "", assistanceEmail: "",
     lenderType: "Direct Lender",
+    termsFileName: "",
     notes: "", rate: "", minLoan: "", maxLoan: "",
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -1361,13 +1389,15 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
           <FormField label="Phone" value={form.phone} onChange={v => set("phone", v)} />
           <FormField label="Assistant Name" value={form.assistantName} onChange={v => set("assistantName", v)} />
           <FormField label="Assistant Phone" value={form.assistantPhone} onChange={v => set("assistantPhone", v)} />
-          <SelectField label="Category" value={form.category} onChange={v => set("category", v)} options={CATEGORIES} />
+          <FormField label="Assistance Email" type="email" value={form.assistanceEmail} onChange={v => set("assistanceEmail", v)} />
           <SelectField label="Lender Type" value={form.lenderType} onChange={v => set("lenderType", v)} options={LENDER_TYPES} />
-          <AddressField label="Address / Location" value={form.address || ""} onChange={v => set("address", v)} span2 />
+          <SelectField label="Category" value={form.category} onChange={v => set("category", v)} options={CATEGORIES} />
           <FormField label="Location / State" value={form.location} onChange={v => set("location", v)} />
+          <AddressField label="Address" value={form.address || ""} onChange={v => set("address", v)} span2 />
           <FormField label="Interest Rate (%)" type="number" step="0.01" value={form.rate} onChange={v => set("rate", v)} />
           <FormField label="Min Loan ($)" type="number" value={form.minLoan} onChange={v => set("minLoan", v)} />
           <FormField label="Max Loan ($)" type="number" value={form.maxLoan} onChange={v => set("maxLoan", v)} />
+          <FileField label="Terms & Conditions (PDF)" fileName={form.termsFileName} onChange={v => set("termsFileName", v)} span2 />
           <FormField label="Notes" value={form.notes} onChange={v => set("notes", v)} textarea span2 />
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
@@ -1524,6 +1554,338 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
   );
 }
 
+
+// ─────────────────────────────────────────────────────────────
+// MULTI-ENTRY PHONE FIELD
+// ─────────────────────────────────────────────────────────────
+const PHONE_TAGS = ["Work", "Home", "Mobile", "Fax", "Custom"];
+function MultiPhoneField({ phones, onChange }) {
+  const add = () => onChange([...phones, { number: "", tag: "Work" }]);
+  const upd = (i, k, v) => { const a = phones.map((p,j) => j===i ? {...p,[k]:v} : p); onChange(a); };
+  const del = i => onChange(phones.filter((_,j) => j!==i));
+  return (
+    <div style={{ gridColumn: "1/-1" }}>
+      <div style={fieldLabel}>PHONE NUMBERS</div>
+      {phones.map((p,i) => (
+        <div key={i} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
+          <input value={p.number} onChange={e=>upd(i,"number",e.target.value)} placeholder="Phone number"
+            style={{...inputStyle, flex:2}} />
+          <select value={p.tag} onChange={e=>upd(i,"tag",e.target.value)}
+            style={{...inputStyle, flex:1, cursor:"pointer"}}>
+            {PHONE_TAGS.map(t=><option key={t}>{t}</option>)}
+          </select>
+          <button onClick={()=>del(i)} style={{background:"none",border:"none",cursor:"pointer",color:C.danger,fontSize:18,flexShrink:0}}>×</button>
+        </div>
+      ))}
+      <button onClick={add} className="btn-transition" style={{
+        padding:"8px 14px", background:C.bg, border:`1.5px dashed ${C.ivoryDark}`,
+        borderRadius:8, cursor:"pointer", fontSize:11, color:C.goldDark, letterSpacing:1,
+      }}>+ Add Phone</button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// MULTI-ENTRY EMAIL FIELD
+// ─────────────────────────────────────────────────────────────
+function MultiEmailField({ emails, onChange }) {
+  const add = () => onChange([...emails, ""]);
+  const upd = (i,v) => onChange(emails.map((e,j)=>j===i?v:e));
+  const del = i => onChange(emails.filter((_,j)=>j!==i));
+  return (
+    <div style={{ gridColumn: "1/-1" }}>
+      <div style={fieldLabel}>EMAIL ADDRESSES</div>
+      {emails.map((e,i) => (
+        <div key={i} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
+          <input type="email" value={e} onChange={ev=>upd(i,ev.target.value)} placeholder="Email address"
+            style={{...inputStyle, flex:1}} />
+          <button onClick={()=>del(i)} style={{background:"none",border:"none",cursor:"pointer",color:C.danger,fontSize:18,flexShrink:0}}>×</button>
+        </div>
+      ))}
+      <button onClick={add} className="btn-transition" style={{
+        padding:"8px 14px", background:C.bg, border:`1.5px dashed ${C.ivoryDark}`,
+        borderRadius:8, cursor:"pointer", fontSize:11, color:C.goldDark, letterSpacing:1,
+      }}>+ Add Email</button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ORGANIZATION FORM
+// ─────────────────────────────────────────────────────────────
+const ENTITY_TYPES = ["LLC","Corporation","Partnership","Sole Proprietorship","Trust","Non-Profit","Other"];
+const VISIBLE_TO   = ["All","Manager Only","Assigned Team"];
+
+function OrgForm({ initial, onSave, onCancel }) {
+  const blank = {
+    name:"", owner:"", sponsor:"", sponsor2:"", officeContact:"",
+    mgmtContact:"", assistance:"", loanOfficer:"", address:"",
+    entityType:"LLC", visibleTo:"All", label:"Regular",
+    phones:[{ number:"", tag:"Work" }], emails:[""],
+  };
+  const [form, setForm] = useState(initial ? {...initial} : blank);
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  return (
+    <div style={{ padding:"24px 20px 40px" }}>
+      <div style={{ width:36, height:4, background:C.ivoryDark, borderRadius:2, margin:"0 auto 20px" }} />
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
+        <h2 style={{ margin:0, fontSize:20, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
+          {initial ? "Edit Organization" : "Add Organization"}
+        </h2>
+        <button onClick={onCancel} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#aaa" }}>×</button>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+        <FormField label="Organization Name" value={form.name} onChange={v=>set("name",v)} required span2 />
+        <FormField label="Owner" value={form.owner} onChange={v=>set("owner",v)} />
+        <SelectField label="Entity Type" value={form.entityType} onChange={v=>set("entityType",v)} options={ENTITY_TYPES} />
+        <FormField label="Sponsor Information" value={form.sponsor} onChange={v=>set("sponsor",v)} />
+        <FormField label="Sponsor 2 Information" value={form.sponsor2} onChange={v=>set("sponsor2",v)} />
+        <FormField label="Office Contact" value={form.officeContact} onChange={v=>set("officeContact",v)} />
+        <FormField label="Management Company Contact" value={form.mgmtContact} onChange={v=>set("mgmtContact",v)} />
+        <FormField label="Assistance" value={form.assistance} onChange={v=>set("assistance",v)} />
+        <FormField label="Loan Officer" value={form.loanOfficer} onChange={v=>set("loanOfficer",v)} />
+        <AddressField label="Address" value={form.address} onChange={v=>set("address",v)} span2 />
+        <SelectField label="Labels" value={form.label} onChange={v=>set("label",v)} options={["Regular","Primary"]} />
+        <SelectField label="Visible To" value={form.visibleTo} onChange={v=>set("visibleTo",v)} options={VISIBLE_TO} />
+        <MultiPhoneField phones={form.phones} onChange={v=>set("phones",v)} />
+        <MultiEmailField emails={form.emails} onChange={v=>set("emails",v)} />
+      </div>
+      <div style={{ display:"flex", gap:10, marginTop:24 }}>
+        <button onClick={onCancel} className="btn-transition" style={{
+          flex:1, padding:"14px", background:"white", border:`1.5px solid ${C.ivoryDark}`,
+          borderRadius:12, cursor:"pointer", fontSize:13, color:C.charcoal,
+        }}>Cancel</button>
+        <button onClick={()=>{ if(!form.name.trim()){alert("Organization name is required.");return;} onSave(form); }}
+          className="btn-transition" style={{
+            flex:2, padding:"14px", background:C.goldDark, color:"white",
+            border:"none", borderRadius:12, cursor:"pointer", fontSize:13, fontWeight:"bold", letterSpacing:1,
+          }}>{initial ? "SAVE CHANGES" : "ADD ORGANIZATION"}</button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ORGS VIEW
+// ─────────────────────────────────────────────────────────────
+function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
+  const [q, setQ] = useState("");
+  const [confirmDel, setConfirmDel] = useState(null);
+  const filtered = orgs.filter(o => !q || [o.name,o.owner,o.loanOfficer,o.entityType].some(f=>(f||"").toLowerCase().includes(q.toLowerCase())));
+  return (
+    <div style={{ padding:"20px 16px 90px", maxWidth:800, margin:"0 auto", width:"100%" }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, flexWrap:"wrap", gap:12 }}>
+        <div>
+          <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>DIRECTORY</div>
+          <h2 style={{ margin:0, fontSize:22, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
+            Organizations <span style={{ color:"#bbb", fontSize:16 }}>({orgs.length})</span>
+          </h2>
+        </div>
+        <button onClick={onAdd} className="btn-transition" style={{
+          padding:"12px 20px", background:C.charcoal, color:C.gold,
+          border:"none", borderRadius:12, cursor:"pointer", fontSize:12, letterSpacing:2,
+        }}>+ ADD ORG</button>
+      </div>
+      <input type="text" placeholder="🔍  Search organizations…" value={q} onChange={e=>setQ(e.target.value)}
+        style={{...inputStyle, marginBottom:16}} />
+      {filtered.length === 0
+        ? <div style={{ textAlign:"center", padding:"50px 0", color:"#bbb" }}>No organizations found.</div>
+        : filtered.map(o => (
+          <div key={o.id} className="card-hover" style={{
+            background:"white", border:`1px solid ${C.ivoryDark}`, borderLeft:`4px solid ${C.goldDark}`,
+            borderRadius:14, padding:"16px", marginBottom:10,
+          }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontWeight:"bold", fontSize:14, fontFamily:"Georgia, serif", color:C.charcoal }}>{o.name}</div>
+                <div style={{ fontSize:11, color:"#999", marginTop:3 }}>{o.entityType} · Owner: {o.owner || "—"} · Loan Officer: {o.loanOfficer || "—"}</div>
+                {o.address && <div style={{ fontSize:11, color:"#aaa", marginTop:3 }}>📍 {o.address}</div>}
+                <div style={{ display:"flex", gap:6, marginTop:8, flexWrap:"wrap" }}>
+                  {o.phones?.filter(p=>p.number).map((p,i)=>(
+                    <span key={i} style={{ fontSize:10, background:C.bg, padding:"3px 8px", borderRadius:10, color:C.charcoal }}>📞 {p.number} <span style={{ color:"#aaa" }}>({p.tag})</span></span>
+                  ))}
+                  {o.emails?.filter(Boolean).map((e,i)=>(
+                    <span key={i} style={{ fontSize:10, background:C.bg, padding:"3px 8px", borderRadius:10, color:C.charcoal }}>✉ {e}</span>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8, flexShrink:0 }}>
+                <span style={{
+                  fontSize:9, padding:"4px 10px", borderRadius:10, letterSpacing:1,
+                  background: o.label==="Primary" ? `${C.goldDark}18` : "#F3F4F6",
+                  color: o.label==="Primary" ? C.goldDark : "#6B7280",
+                  border:`1px solid ${o.label==="Primary" ? C.goldDark+"44" : "#E5E7EB"}`,
+                }}>{o.label?.toUpperCase()}</span>
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={()=>onEdit(o)} className="btn-transition" style={{ padding:"8px 14px", background:C.charcoal, color:C.gold, border:"none", borderRadius:8, cursor:"pointer", fontSize:11 }}>EDIT</button>
+                  <button onClick={()=>setConfirmDel(o)} style={{ background:"none", border:"none", color:C.danger, cursor:"pointer", fontSize:11, textDecoration:"underline" }}>Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+      }
+      {confirmDel && (
+        <ConfirmModal title="Delete Organization" message={`Remove "${confirmDel.name}"? This cannot be undone.`}
+          confirmLabel="Delete" danger
+          onConfirm={()=>{ onDelete(confirmDel.id); setConfirmDel(null); }}
+          onCancel={()=>setConfirmDel(null)} />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// DEAL FORM
+// ─────────────────────────────────────────────────────────────
+function DealForm({ initial, clients, orgs, onSave, onCancel }) {
+  const blank = {
+    contactId: clients[0]?.id || "", orgId: orgs[0]?.id || "",
+    address:"", value:"", closingDate:"", owner:"", label:"Regular",
+  };
+  const [form, setForm] = useState(initial ? {...initial} : blank);
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  return (
+    <div style={{ padding:"24px 20px 40px" }}>
+      <div style={{ width:36, height:4, background:C.ivoryDark, borderRadius:2, margin:"0 auto 20px" }} />
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
+        <h2 style={{ margin:0, fontSize:20, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
+          {initial ? "Edit Deal" : "Add Deal"}
+        </h2>
+        <button onClick={onCancel} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#aaa" }}>×</button>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+        <div>
+          <div style={fieldLabel}>CONTACT PERSON</div>
+          <select value={form.contactId} onChange={e=>set("contactId", Number(e.target.value))}
+            style={{...inputStyle, cursor:"pointer", appearance:"none",
+              backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
+              backgroundRepeat:"no-repeat", backgroundPosition:"right 14px center"}}>
+            <option value="">— Select Client —</option>
+            {clients.map(c=><option key={c.id} value={c.id}>{c.fullName}</option>)}
+          </select>
+        </div>
+        <div>
+          <div style={fieldLabel}>ORGANIZATION</div>
+          <select value={form.orgId} onChange={e=>set("orgId", Number(e.target.value))}
+            style={{...inputStyle, cursor:"pointer", appearance:"none",
+              backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
+              backgroundRepeat:"no-repeat", backgroundPosition:"right 14px center"}}>
+            <option value="">— Select Organization —</option>
+            {orgs.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
+          </select>
+        </div>
+        <AddressField label="Address" value={form.address} onChange={v=>set("address",v)} span2 />
+        <div>
+          <div style={fieldLabel}>VALUE</div>
+          <div style={{ position:"relative" }}>
+            <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"#888", fontSize:14 }}>$</span>
+            <input type="number" value={form.value} onChange={e=>set("value",e.target.value)} placeholder="0"
+              style={{...inputStyle, paddingLeft:28}} />
+          </div>
+        </div>
+        <FormField label="Expected Closing Date" type="date" value={form.closingDate} onChange={v=>set("closingDate",v)} />
+        <FormField label="Owner" value={form.owner} onChange={v=>set("owner",v)} />
+        <SelectField label="Labels" value={form.label} onChange={v=>set("label",v)} options={["Regular","Primary"]} />
+      </div>
+      <div style={{ display:"flex", gap:10, marginTop:24 }}>
+        <button onClick={onCancel} className="btn-transition" style={{
+          flex:1, padding:"14px", background:"white", border:`1.5px solid ${C.ivoryDark}`,
+          borderRadius:12, cursor:"pointer", fontSize:13, color:C.charcoal,
+        }}>Cancel</button>
+        <button onClick={()=>{ if(!form.address.trim()){alert("Address is required.");return;} onSave({...form, value: parseFloat(form.value)||0}); }}
+          className="btn-transition" style={{
+            flex:2, padding:"14px", background:C.goldDark, color:"white",
+            border:"none", borderRadius:12, cursor:"pointer", fontSize:13, fontWeight:"bold", letterSpacing:1,
+          }}>{initial ? "SAVE CHANGES" : "ADD DEAL"}</button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// DEALS VIEW
+// ─────────────────────────────────────────────────────────────
+function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete }) {
+  const [q, setQ] = useState("");
+  const [confirmDel, setConfirmDel] = useState(null);
+  const getClient = id => clients.find(c=>c.id===Number(id));
+  const getOrg    = id => orgs.find(o=>o.id===Number(id));
+  const filtered  = deals.filter(d=>{
+    const cl = getClient(d.contactId);
+    const org = getOrg(d.orgId);
+    return !q || [d.address, cl?.fullName, org?.name, d.owner].some(f=>(f||"").toLowerCase().includes(q.toLowerCase()));
+  });
+  const totalValue = deals.reduce((s,d)=>s+(d.value||0),0);
+  return (
+    <div style={{ padding:"20px 16px 90px", maxWidth:800, margin:"0 auto", width:"100%" }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, flexWrap:"wrap", gap:12 }}>
+        <div>
+          <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>PIPELINE</div>
+          <h2 style={{ margin:0, fontSize:22, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
+            Deals <span style={{ color:"#bbb", fontSize:16 }}>({deals.length})</span>
+          </h2>
+        </div>
+        <button onClick={onAdd} className="btn-transition" style={{
+          padding:"12px 20px", background:C.charcoal, color:C.gold,
+          border:"none", borderRadius:12, cursor:"pointer", fontSize:12, letterSpacing:2,
+        }}>+ ADD DEAL</button>
+      </div>
+      <div style={{ background:"white", borderRadius:12, padding:"14px 16px", border:`1px solid ${C.ivoryDark}`, borderLeft:`4px solid ${C.goldDark}`, marginBottom:16 }}>
+        <div style={{ fontSize:9, color:"#aaa", letterSpacing:2, marginBottom:4 }}>TOTAL DEAL VALUE</div>
+        <div style={{ fontSize:22, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.charcoal }}>{fmt$(totalValue)}</div>
+      </div>
+      <input type="text" placeholder="🔍  Search deals by address, client, org…" value={q} onChange={e=>setQ(e.target.value)}
+        style={{...inputStyle, marginBottom:16}} />
+      {filtered.length === 0
+        ? <div style={{ textAlign:"center", padding:"50px 0", color:"#bbb" }}>No deals found.</div>
+        : filtered.map(d => {
+          const cl  = getClient(d.contactId);
+          const org = getOrg(d.orgId);
+          return (
+            <div key={d.id} className="card-hover" style={{
+              background:"white", border:`1px solid ${C.ivoryDark}`, borderLeft:`4px solid ${C.info}`,
+              borderRadius:14, padding:"16px", marginBottom:10,
+            }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontWeight:"bold", fontSize:14, fontFamily:"Georgia, serif", color:C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.address || "No address"}</div>
+                  <div style={{ fontSize:11, color:"#999", marginTop:3 }}>
+                    👤 {cl?.fullName || "—"} &nbsp;·&nbsp; 🏢 {org?.name || "—"}
+                  </div>
+                  {d.closingDate && <div style={{ fontSize:11, color:"#aaa", marginTop:3 }}>📅 Closing: {d.closingDate}</div>}
+                  {d.owner && <div style={{ fontSize:11, color:"#aaa", marginTop:2 }}>Owner: {d.owner}</div>}
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8, flexShrink:0 }}>
+                  <div style={{ fontSize:17, fontWeight:"bold", color:C.goldDark, fontFamily:"Georgia, serif" }}>{fmt$(d.value)}</div>
+                  <span style={{
+                    fontSize:9, padding:"4px 10px", borderRadius:10, letterSpacing:1,
+                    background: d.label==="Primary" ? `${C.goldDark}18` : "#F3F4F6",
+                    color: d.label==="Primary" ? C.goldDark : "#6B7280",
+                    border:`1px solid ${d.label==="Primary" ? C.goldDark+"44" : "#E5E7EB"}`,
+                  }}>{d.label?.toUpperCase()}</span>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <button onClick={()=>onEdit(d)} className="btn-transition" style={{ padding:"8px 14px", background:C.charcoal, color:C.gold, border:"none", borderRadius:8, cursor:"pointer", fontSize:11 }}>EDIT</button>
+                    <button onClick={()=>setConfirmDel(d)} style={{ background:"none", border:"none", color:C.danger, cursor:"pointer", fontSize:11, textDecoration:"underline" }}>Delete</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })
+      }
+      {confirmDel && (
+        <ConfirmModal title="Delete Deal" message={`Remove deal at "${confirmDel.address}"? This cannot be undone.`}
+          confirmLabel="Delete" danger
+          onConfirm={()=>{ onDelete(confirmDel.id); setConfirmDel(null); }}
+          onCancel={()=>setConfirmDel(null)} />
+      )}
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────
 // MAIN APP
 // ─────────────────────────────────────────────────────────────
@@ -1541,11 +1903,17 @@ export default function App() {
   const [formMode,         setFormMode]         = useState(null);
   const [clientFormOpen,   setClientFormOpen]   = useState(false);
   const [editingClient,    setEditingClient]    = useState(null);
+  const [orgs,             setOrgs]             = useState(INITIAL_ORGS);
+  const [deals,            setDeals]            = useState(INITIAL_DEALS);
+  const [orgFormOpen,      setOrgFormOpen]      = useState(false);
+  const [editingOrg,       setEditingOrg]       = useState(null);
+  const [dealFormOpen,     setDealFormOpen]     = useState(false);
+  const [editingDeal,      setEditingDeal]      = useState(null);
 
   // Restrict workers to their allowed views
   const defaultView = user?.role === "manager" ? "dashboard" : "clients";
 
-  const activeNav = ["dashboard","clients","search","settings"].includes(view) ? view : "categories";
+  const activeNav = ["dashboard","clients","orgs","deals","search","settings"].includes(view) ? view : "categories";
 
   const navigate = id => {
     setSidebarOpen(false);
@@ -1553,6 +1921,8 @@ export default function App() {
     if (user?.role !== "manager" && (id === "dashboard" || id === "settings")) return;
     if (id === "dashboard") setView("dashboard");
     else if (id === "clients") setView("clients");
+    else if (id === "orgs") setView("orgs");
+    else if (id === "deals") setView("deals");
     else if (id === "search") setView("search");
     else if (id === "settings") setView("settings");
     else setView("categories");
@@ -1603,6 +1973,30 @@ export default function App() {
   const handleAddWorker    = w  => setWorkers(ws => [...ws, w]);
   const handleDeleteWorker = id => setWorkers(ws => ws.filter(w => w.id !== id));
 
+  // Org handlers
+  const handleOrgSave = form => {
+    if (editingOrg) {
+      setOrgs(os => os.map(o => o.id === editingOrg.id ? { ...form, id: editingOrg.id } : o));
+    } else {
+      setOrgs(os => [...os, { ...form, id: Date.now() }]);
+    }
+    setOrgFormOpen(false); setEditingOrg(null);
+  };
+  const handleOrgEdit   = o  => { setEditingOrg(o); setOrgFormOpen(true); };
+  const handleOrgDelete = id => setOrgs(os => os.filter(o => o.id !== id));
+
+  // Deal handlers
+  const handleDealSave = form => {
+    if (editingDeal) {
+      setDeals(ds => ds.map(d => d.id === editingDeal.id ? { ...form, id: editingDeal.id, createdAt: editingDeal.createdAt } : d));
+    } else {
+      setDeals(ds => [...ds, { ...form, id: Date.now(), createdAt: new Date().toISOString().slice(0,10) }]);
+    }
+    setDealFormOpen(false); setEditingDeal(null);
+  };
+  const handleDealEdit   = d  => { setEditingDeal(d); setDealFormOpen(true); };
+  const handleDealDelete = id => setDeals(ds => ds.filter(d => d.id !== id));
+
   const handleLogin = loggedInUser => {
     setUser(loggedInUser);
     setView(loggedInUser.role === "manager" ? "dashboard" : "clients");
@@ -1638,13 +2032,20 @@ export default function App() {
       case "clients":
         return <ClientsView clients={clients} onAdd={() => { setEditingClient(null); setClientFormOpen(true); }}
           onEdit={handleClientEdit} onDelete={handleClientDelete} onStageChange={handleStageChange} />;
+      case "orgs":
+        return <OrgsView orgs={orgs} onAdd={() => { setEditingOrg(null); setOrgFormOpen(true); }}
+          onEdit={handleOrgEdit} onDelete={handleOrgDelete} />;
+      case "deals":
+        return <DealsView deals={deals} clients={clients} orgs={orgs}
+          onAdd={() => { setEditingDeal(null); setDealFormOpen(true); }}
+          onEdit={handleDealEdit} onDelete={handleDealDelete} />;
       case "settings":
         if (user.role !== "manager") { setView("clients"); return null; }
         return <SettingsView workers={workers} onAddWorker={handleAddWorker} onDeleteWorker={handleDeleteWorker} />;
       default:
         if (user.role !== "manager") return <ClientsView clients={clients} onAdd={() => { setEditingClient(null); setClientFormOpen(true); }}
           onEdit={handleClientEdit} onDelete={handleClientDelete} onStageChange={handleStageChange} />;
-        return <Dashboard lenders={lenders} clients={clients} user={user} onCategorySelect={handleCategorySelect} onNavigate={navigate} />;
+        return <Dashboard lenders={lenders} clients={clients} deals={deals} user={user} onCategorySelect={handleCategorySelect} onNavigate={navigate} />;
     }
   };
 
@@ -1665,7 +2066,7 @@ export default function App() {
         <BottomNav activeNav={activeNav} onNavigate={navigate} userRole={user.role} />
 
         {clientFormOpen && (
-          <Modal onClose={() => { setClientFormOpen(false); setEditingClient(null); }} maxWidth={600}>
+          <Modal onClose={() => { setClientFormOpen(false); setEditingClient(null); }} maxWidth={640}>
             <ClientForm
               initial={editingClient}
               onSave={handleClientSave}
@@ -1673,7 +2074,27 @@ export default function App() {
             />
           </Modal>
         )}
+        {orgFormOpen && (
+          <Modal onClose={() => { setOrgFormOpen(false); setEditingOrg(null); }} maxWidth={680}>
+            <OrgForm
+              initial={editingOrg}
+              onSave={handleOrgSave}
+              onCancel={() => { setOrgFormOpen(false); setEditingOrg(null); }}
+            />
+          </Modal>
+        )}
+        {dealFormOpen && (
+          <Modal onClose={() => { setDealFormOpen(false); setEditingDeal(null); }} maxWidth={600}>
+            <DealForm
+              initial={editingDeal}
+              clients={clients}
+              orgs={orgs}
+              onSave={handleDealSave}
+              onCancel={() => { setDealFormOpen(false); setEditingDeal(null); }}
+            />
+          </Modal>
+        )}
       </div>
     </>
   );
-            }
+                      }
