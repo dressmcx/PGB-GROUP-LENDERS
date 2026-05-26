@@ -416,11 +416,9 @@ function Header({ user, onLogout, onHome, onMenuToggle, sidebarOpen }) {
 function Sidebar({ activeNav, onNavigate, isOpen, onClose, userRole }) {
   const mainLinks = [
     ...(userRole === "manager" ? [{ id: "dashboard", label: "Dashboard", icon: "◈" }] : []),
-    { id: "clients",    label: "Clients",       icon: "👤" },
-    { id: "orgs",       label: "Organizations", icon: "🏢" },
-    { id: "deals",      label: "Deals",         icon: "🤝" },
-    { id: "categories", label: "Lenders",       icon: "⊞" },
-    { id: "search",     label: "Search",        icon: "⌕" },
+    { id: "clients", label: "Clients",       icon: "👤" },
+    { id: "orgs",    label: "Organizations", icon: "🏢" },
+    { id: "deals",   label: "Deals",         icon: "🤝" },
     ...(userRole === "manager" ? [{ id: "settings", label: "Settings", icon: "⚙" }] : []),
   ];
 
@@ -471,10 +469,9 @@ function Sidebar({ activeNav, onNavigate, isOpen, onClose, userRole }) {
 function BottomNav({ activeNav, onNavigate, userRole }) {
   const items = [
     ...(userRole === "manager" ? [{ id: "dashboard", label: "Home", icon: "◈" }] : []),
-    { id: "clients",    label: "Clients", icon: "👤" },
-    { id: "orgs",       label: "Orgs",    icon: "🏢" },
-    { id: "deals",      label: "Deals",   icon: "🤝" },
-    { id: "categories", label: "Lenders", icon: "⊞" },
+    { id: "clients", label: "Clients", icon: "👤" },
+    { id: "orgs",    label: "Orgs",    icon: "🏢" },
+    { id: "deals",   label: "Deals",   icon: "🤝" },
     ...(userRole === "manager" ? [{ id: "settings", label: "Settings", icon: "⚙" }] : []),
   ];
   return (
@@ -707,12 +704,17 @@ function ClientForm({ initial, onSave, onCancel }) {
     <div style={{ padding: "24px 20px 40px" }}>
       <div style={{ width: 36, height: 4, background: C.ivoryDark, borderRadius: 2, margin: "0 auto 20px" }} />
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: initial?._isNew ? 10 : 24 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontFamily: "Georgia, serif", fontWeight: "normal", color: C.charcoal }}>
-          {initial ? "Edit Client" : "New Client"}
+          {initial?._isNew ? "Add New Contact" : initial ? "Edit Client" : "New Client"}
         </h2>
         <button onClick={onCancel} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#aaa", lineHeight: 1 }}>×</button>
       </div>
+      {initial?._isNew && (
+        <div style={{ background:`${C.goldDark}18`, border:`1px solid ${C.goldDark}44`, borderRadius:10, padding:"10px 14px", marginBottom:18, fontSize:12, color:C.goldDark }}>
+          ← Adding new contact from Organization form. Save to return.
+        </div>
+      )}
 
       <div style={{ background: C.bg, borderRadius: 12, padding: "14px 12px", marginBottom: 20 }}>
         <div style={{ fontSize: 9, letterSpacing: 2, color: "#999", marginBottom: 10 }}>DEAL PROGRESS</div>
@@ -1033,129 +1035,189 @@ function ClientsView({ clients, onAdd, onEdit, onDelete, onStageChange }) {
 // DASHBOARD
 // ─────────────────────────────────────────────────────────────
 function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user }) {
-  const stats = CATEGORIES.map(cat => ({
-    cat, count: lenders.filter(l => l.category === cat).length,
-    avgRate: lenders.filter(l => l.category === cat).reduce((a, l) => a + l.rate, 0) /
-      (lenders.filter(l => l.category === cat).length || 1),
-  }));
+  const totalPipeline  = clients.reduce((s,c) => s+(c.paymentAmount||0), 0);
+  const paidTotal      = clients.filter(c=>c.paymentStatus==="paid").reduce((s,c)=>s+(c.paymentAmount||0),0);
+  const totalDealValue = (deals||[]).reduce((s,d)=>s+(d.value||0),0);
+  const activeClients  = clients.filter(c=>!["closed","cancelled"].includes(c.dealStage)).length;
+  const recentClients  = [...clients].sort((a,b)=>b.id-a.id).slice(0,5);
 
-  const stageStats = DEAL_STAGES.map(s => ({
-    ...s, count: clients.filter(c => c.dealStage === s.id).length
-  })).filter(s => s.count > 0);
+  // Pipeline columns — group clients by stage
+  const pipelineStages = DEAL_STAGES.filter(s=>s.id!=="cancelled");
+  const clientsByStage = id => clients.filter(c=>c.dealStage===id);
 
-  const totalPipeline = clients.reduce((sum, c) => sum + (c.paymentAmount || 0), 0);
-  const paidTotal     = clients.filter(c => c.paymentStatus === "paid").reduce((sum, c) => sum + (c.paymentAmount || 0), 0);
-  const recentClients = [...clients].sort((a,b) => b.id - a.id).slice(0, 4);
-  const activeDeals   = clients.filter(c => !["closed_deal","cancelled"].includes(c.dealStage)).length;
+  const kpis = [
+    { label:"Total Clients",  value:clients.length,       color:C.goldDark, icon:"👤", sub:`${activeClients} active` },
+    { label:"Total Deals",    value:(deals||[]).length,    color:C.info,     icon:"🤝", sub:`${fmt$(totalDealValue)} value` },
+    { label:"Fee Pipeline",   value:fmt$(totalPipeline),  color:C.warning,  icon:"💰", sub:"total outstanding" },
+    { label:"Fees Collected", value:fmt$(paidTotal),       color:C.success,  icon:"✓",  sub:`${clients.length?Math.round(paidTotal/totalPipeline*100)||0:0}% of pipeline` },
+  ];
 
   return (
-    <div style={{ padding: "20px 16px 90px", maxWidth: 1100, margin: "0 auto", width: "100%" }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ color: C.goldDark, fontSize: 9, letterSpacing: 4, marginBottom: 4 }}>OVERVIEW</div>
-        <h1 style={{ color: C.charcoal, margin: 0, fontSize: 24, fontFamily: "Georgia, serif", fontWeight: "normal" }}>
+    <div style={{ padding:"20px 16px 90px", maxWidth:1200, margin:"0 auto", width:"100%" }}>
+
+      {/* ── Greeting ── */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>OVERVIEW</div>
+        <h1 style={{ color:C.charcoal, margin:0, fontSize:24, fontFamily:"Georgia, serif", fontWeight:"normal" }}>
           Good day, {user.name}
         </h1>
-        <div style={{ color: "#aaa", fontSize: 12, marginTop: 4 }}>
-          {activeDeals} active deal{activeDeals !== 1 ? "s" : ""} in progress
-        </div>
+        <div style={{ color:"#aaa", fontSize:12, marginTop:4 }}>{activeClients} active client{activeClients!==1?"s":""} in pipeline</div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 24 }}>
-        {[
-          { label: "Total Clients",  value: clients.length,                                          color: C.goldDark, icon: "👤" },
-          { label: "Total Deals",    value: (deals||[]).length,                                       color: C.info,     icon: "🤝" },
-          { label: "Deal Pipeline",  value: fmt$((deals||[]).reduce((s,d)=>s+(d.value||0),0)),        color: C.goldDark, icon: "💰" },
-          { label: "Collected",      value: fmt$(paidTotal),                                          color: C.success,  icon: "✓" },
-        ].map((kpi, i) => (
-          <div key={i} className="card-hover" style={{
-            background: "white", borderRadius: 14, padding: "16px",
-            border: `1px solid ${C.ivoryDark}`, borderTop: `4px solid ${kpi.color}`,
+      {/* ── KPI Banner — 4 columns ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:10, marginBottom:24 }}>
+        {kpis.map((k,i) => (
+          <div key={i} style={{
+            background:"white", borderRadius:14, padding:"16px 14px",
+            border:`1px solid ${C.ivoryDark}`, borderTop:`4px solid ${k.color}`,
+            boxShadow:"0 1px 4px rgba(0,0,0,0.04)",
           }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
               <div>
-                <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 2, marginBottom: 6 }}>{kpi.label.toUpperCase()}</div>
-                <div style={{ fontSize: 22, fontWeight: "bold", fontFamily: "Georgia, serif", color: C.charcoal }}>{kpi.value}</div>
+                <div style={{ fontSize:9, color:"#aaa", letterSpacing:2, marginBottom:6 }}>{k.label.toUpperCase()}</div>
+                <div style={{ fontSize:20, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.charcoal }}>{k.value}</div>
+                <div style={{ fontSize:10, color:"#bbb", marginTop:4 }}>{k.sub}</div>
               </div>
-              <span style={{ fontSize: 20 }}>{kpi.icon}</span>
+              <span style={{ fontSize:18, opacity:0.7 }}>{k.icon}</span>
             </div>
           </div>
         ))}
       </div>
 
-      {stageStats.length > 0 && (
-        <div style={{ background: "white", borderRadius: 14, padding: "18px 16px", marginBottom: 20, border: `1px solid ${C.ivoryDark}` }}>
-          <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 3, marginBottom: 14 }}>DEAL STAGES</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {stageStats.map(s => {
-              const pct = Math.round((s.count / clients.length) * 100);
+      {/* ── Two-column workspace layout ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 340px", gap:16, alignItems:"start" }}>
+
+        {/* LEFT — Pipeline Kanban columns */}
+        <div>
+          <div style={{ fontSize:9, color:"#aaa", letterSpacing:3, marginBottom:12 }}>ACTIVE PIPELINE · STAGES</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {pipelineStages.filter(s=>clientsByStage(s.id).length>0).map(s => {
+              const cols = clientsByStage(s.id);
               return (
-                <div key={s.id}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ fontSize: 11, color: s.color, fontWeight: "bold" }}>{s.icon} {s.label}</span>
-                    <span style={{ fontSize: 11, color: "#aaa" }}>{s.count} client{s.count !== 1 ? "s" : ""}</span>
+                <div key={s.id} style={{
+                  background:"white", borderRadius:12, border:`1px solid ${C.ivoryDark}`,
+                  borderLeft:`4px solid ${s.color}`, overflow:"hidden",
+                }}>
+                  {/* Stage header */}
+                  <div style={{
+                    padding:"10px 14px", display:"flex", alignItems:"center",
+                    justifyContent:"space-between", background:`${s.bg}`,
+                    borderBottom:`1px solid ${s.color}22`,
+                  }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ fontSize:14 }}>{s.icon}</span>
+                      <span style={{ fontSize:11, fontWeight:"bold", color:s.color, letterSpacing:0.5 }}>{s.label}</span>
+                    </div>
+                    <span style={{
+                      fontSize:10, fontWeight:"bold", color:s.color,
+                      background:"white", padding:"2px 8px", borderRadius:10,
+                      border:`1px solid ${s.color}33`,
+                    }}>{cols.length}</span>
                   </div>
-                  <div style={{ height: 6, background: "#F3F4F6", borderRadius: 3 }}>
-                    <div style={{ height: "100%", width: `${pct}%`, background: s.color, borderRadius: 3, transition: "width 0.5s ease" }} />
+                  {/* Client rows */}
+                  {cols.map(c => (
+                    <div key={c.id} style={{
+                      padding:"10px 14px", display:"flex", alignItems:"center",
+                      justifyContent:"space-between", gap:10,
+                      borderBottom:`1px solid ${C.ivory}`,
+                    }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0 }}>
+                        <div style={{
+                          width:30, height:30, borderRadius:"50%", flexShrink:0,
+                          background:`linear-gradient(135deg,${s.color}22,${s.color}44)`,
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                          fontSize:12, color:s.color, fontWeight:"bold",
+                        }}>{c.fullName.charAt(0)}</div>
+                        <div style={{ minWidth:0 }}>
+                          <div style={{ fontSize:12, fontWeight:"bold", color:C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.fullName}</div>
+                          <div style={{ fontSize:10, color:"#999" }}>{c.email || c.phone || "—"}</div>
+                        </div>
+                      </div>
+                      <div style={{ textAlign:"right", flexShrink:0 }}>
+                        <div style={{ fontSize:12, fontWeight:"bold", color:C.charcoal, fontFamily:"Georgia, serif" }}>{fmt$(c.paymentAmount)}</div>
+                        <PayBadge statusId={c.paymentStatus} small />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+            {clients.filter(c=>!["cancelled"].includes(c.dealStage)).length === 0 && (
+              <div style={{ textAlign:"center", padding:"40px 0", color:"#bbb", fontSize:13 }}>
+                No active clients in pipeline.
+                <span style={{ color:C.goldDark, cursor:"pointer", marginLeft:6 }} onClick={()=>onNavigate("clients")}>Add one →</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT — Recent activity + quick stats */}
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+
+          {/* Recent Clients */}
+          <div style={{ background:"white", borderRadius:14, padding:"16px", border:`1px solid ${C.ivoryDark}` }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+              <div style={{ fontSize:9, color:"#aaa", letterSpacing:3 }}>RECENT CLIENTS</div>
+              <button onClick={()=>onNavigate("clients")} style={{ background:"none", border:"none", cursor:"pointer", color:C.goldDark, fontSize:11 }}>All →</button>
+            </div>
+            {recentClients.map(c => {
+              const s = stageInfo(c.dealStage);
+              return (
+                <div key={c.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:`1px solid ${C.ivory}` }}>
+                  <div style={{
+                    width:30, height:30, borderRadius:"50%", flexShrink:0,
+                    background:`linear-gradient(135deg,${s.color}22,${s.color}44)`,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:12, color:s.color, fontWeight:"bold",
+                  }}>{c.fullName.charAt(0)}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:12, fontWeight:"bold", color:C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.fullName}</div>
+                    <div style={{ fontSize:9, color:s.color, marginTop:1 }}>{s.icon} {s.label}</div>
                   </div>
+                  <div style={{ fontSize:11, fontWeight:"bold", color:C.charcoal, fontFamily:"Georgia, serif", flexShrink:0 }}>{fmt$(c.paymentAmount)}</div>
                 </div>
               );
             })}
           </div>
-        </div>
-      )}
 
-      {recentClients.length > 0 && (
-        <div style={{ background: "white", borderRadius: 14, padding: "18px 16px", marginBottom: 20, border: `1px solid ${C.ivoryDark}` }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 3 }}>RECENT CLIENTS</div>
-            <button onClick={() => onNavigate("clients")} style={{ background: "none", border: "none", cursor: "pointer", color: C.goldDark, fontSize: 11, letterSpacing: 1 }}>
-              View All →
-            </button>
-          </div>
-          {recentClients.map(c => {
-            const s = stageInfo(c.dealStage);
-            return (
-              <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: `1px solid ${C.ivory}` }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-                  background: `linear-gradient(135deg, ${s.color}22, ${s.color}44)`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 15, color: s.color, fontWeight: "bold",
-                }}>{c.fullName.charAt(0)}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: "bold", color: C.charcoal, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.fullName}</div>
-                  <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
-                    <StageBadge stageId={c.dealStage} small />
-                    <PayBadge statusId={c.paymentStatus} small />
+          {/* Recent Deals */}
+          {(deals||[]).length > 0 && (
+            <div style={{ background:"white", borderRadius:14, padding:"16px", border:`1px solid ${C.ivoryDark}` }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+                <div style={{ fontSize:9, color:"#aaa", letterSpacing:3 }}>RECENT DEALS</div>
+                <button onClick={()=>onNavigate("deals")} style={{ background:"none", border:"none", cursor:"pointer", color:C.goldDark, fontSize:11 }}>All →</button>
+              </div>
+              {[...(deals||[])].sort((a,b)=>b.id-a.id).slice(0,4).map(d => (
+                <div key={d.id} style={{ padding:"8px 0", borderBottom:`1px solid ${C.ivory}` }}>
+                  <div style={{ fontSize:12, fontWeight:"bold", color:C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.address||"—"}</div>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginTop:3 }}>
+                    <span style={{ fontSize:10, color:"#999" }}>{d.closingDate ? `Close: ${d.closingDate}` : "No date set"}</span>
+                    <span style={{ fontSize:11, fontWeight:"bold", color:C.goldDark, fontFamily:"Georgia, serif" }}>{fmt$(d.value)}</span>
                   </div>
                 </div>
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: "bold", color: C.charcoal, fontFamily: "Georgia, serif" }}>{fmt$(c.paymentAmount)}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              ))}
+            </div>
+          )}
 
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 3, marginBottom: 14 }}>LENDER CATEGORIES</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
-          {stats.map(s => (
-            <div key={s.cat} onClick={() => onCategorySelect(s.cat)} className="card-hover"
-              style={{ background: "white", border: `1px solid ${C.ivoryDark}`, borderLeft: `4px solid ${C.gold}`, borderRadius: 14, padding: "16px 14px", cursor: "pointer" }}>
-              <div style={{ color: "#aaa", fontSize: 9, letterSpacing: 2, marginBottom: 6 }}>{s.cat.toUpperCase()}</div>
-              <div style={{ fontSize: 26, fontWeight: "bold", color: C.charcoal, fontFamily: "Georgia, serif" }}>{s.count}</div>
-              <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Avg {s.avgRate.toFixed(2)}%</div>
-              <div style={{ color: C.goldDark, fontSize: 11, marginTop: 10 }}>View →</div>
-            </div>
-          ))}
-          <div style={{ background: C.charcoal, borderRadius: 14, padding: "16px 14px", borderLeft: `4px solid ${C.goldDark}` }}>
-            <div style={{ color: C.gold, fontSize: 9, letterSpacing: 2, marginBottom: 6 }}>TOTAL LENDERS</div>
-            <div style={{ fontSize: 26, fontWeight: "bold", color: C.ivory, fontFamily: "Georgia, serif" }}>{lenders.length}</div>
-            <div style={{ fontSize: 11, color: C.gold, opacity: 0.6, marginTop: 4 }}>
-              Avg {(lenders.reduce((a, l) => a + l.rate, 0) / (lenders.length || 1)).toFixed(2)}%
-            </div>
+          {/* Stage summary mini-chart */}
+          <div style={{ background:"white", borderRadius:14, padding:"16px", border:`1px solid ${C.ivoryDark}` }}>
+            <div style={{ fontSize:9, color:"#aaa", letterSpacing:3, marginBottom:10 }}>STAGE BREAKDOWN</div>
+            {DEAL_STAGES.filter(s=>s.id!=="cancelled").map(s => {
+              const cnt = clientsByStage(s.id).length;
+              if (cnt===0) return null;
+              const pct = Math.round((cnt/clients.length)*100)||0;
+              return (
+                <div key={s.id} style={{ marginBottom:8 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                    <span style={{ fontSize:10, color:s.color, fontWeight:"bold" }}>{s.icon} {s.label}</span>
+                    <span style={{ fontSize:10, color:"#aaa" }}>{cnt}</span>
+                  </div>
+                  <div style={{ height:5, background:"#F3F4F6", borderRadius:3 }}>
+                    <div style={{ height:"100%", width:`${pct}%`, background:s.color, borderRadius:3, transition:"width 0.5s" }} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1613,18 +1675,120 @@ function MultiEmailField({ emails, onChange }) {
 // ─────────────────────────────────────────────────────────────
 // ORGANIZATION FORM
 // ─────────────────────────────────────────────────────────────
-const ENTITY_TYPES = ["LLC","Corporation","Partnership","Sole Proprietorship","Trust","Non-Profit","Other"];
+const ENTITY_TYPES = ["LLC","Corporation","Partnership","Non-Profit","Other"];
 const VISIBLE_TO   = ["All","Manager Only","Assigned Team"];
 
-function OrgForm({ initial, onSave, onCancel }) {
+// Contact autocomplete field — searches clients list, shows "Add New Contact" if not found
+function ContactAutocomplete({ label, value, onChange, clients, onAddNew, span2 }) {
+  const [query, setQuery]   = useState(value || "");
+  const [open, setOpen]     = useState(false);
+  const ref                 = useRef(null);
+
+  useEffect(() => { setQuery(value || ""); }, [value]);
+
+  // Click-outside closes dropdown
+  useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const matches = query.length > 0
+    ? clients.filter(c => c.fullName.toLowerCase().includes(query.toLowerCase()))
+    : clients.slice(0, 6);
+
+  const exactMatch = clients.some(c => c.fullName.toLowerCase() === query.toLowerCase());
+
+  const pick = name => { onChange(name); setQuery(name); setOpen(false); };
+
+  return (
+    <div ref={ref} style={span2 ? { gridColumn:"1/-1", position:"relative" } : { position:"relative" }}>
+      <div style={fieldLabel}>{label.toUpperCase()}</div>
+      <div style={{ position:"relative" }}>
+        <input
+          value={query}
+          onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder={`Search contacts…`}
+          style={{ ...inputStyle, paddingRight: 36 }}
+        />
+        <span style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", fontSize:12, color:"#bbb", pointerEvents:"none" }}>▾</span>
+      </div>
+      {open && (
+        <div style={{
+          position:"absolute", top:"100%", left:0, right:0, zIndex:500,
+          background:"white", border:`1.5px solid ${C.ivoryDark}`, borderRadius:10,
+          boxShadow:"0 8px 32px rgba(0,0,0,0.12)", maxHeight:220, overflowY:"auto",
+          marginTop:4,
+        }}>
+          {matches.length > 0 ? matches.map(c => (
+            <div key={c.id} onMouseDown={() => pick(c.fullName)} style={{
+              padding:"11px 14px", cursor:"pointer", fontSize:13, color:C.charcoal,
+              borderBottom:`1px solid ${C.ivory}`,
+              display:"flex", alignItems:"center", gap:10,
+            }}
+            onMouseEnter={e=>e.currentTarget.style.background=C.bg}
+            onMouseLeave={e=>e.currentTarget.style.background="white"}>
+              <div style={{
+                width:28, height:28, borderRadius:"50%", background:`${C.goldDark}22`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:11, color:C.goldDark, fontWeight:"bold", flexShrink:0,
+              }}>{c.fullName.charAt(0)}</div>
+              <div>
+                <div style={{ fontWeight:"bold" }}>{c.fullName}</div>
+                {c.email && <div style={{ fontSize:10, color:"#999" }}>{c.email}</div>}
+              </div>
+            </div>
+          )) : (
+            <div style={{ padding:"10px 14px", fontSize:12, color:"#aaa" }}>No contacts found</div>
+          )}
+          {!exactMatch && query.trim().length > 0 && (
+            <div onMouseDown={() => { setOpen(false); onAddNew(query.trim(), label); }}
+              style={{
+                padding:"12px 14px", cursor:"pointer", fontSize:12,
+                color:C.goldDark, borderTop:`1px solid ${C.ivory}`,
+                display:"flex", alignItems:"center", gap:8, fontWeight:"bold",
+              }}
+              onMouseEnter={e=>e.currentTarget.style.background=`${C.goldDark}0D`}
+              onMouseLeave={e=>e.currentTarget.style.background="white"}>
+              <span style={{ fontSize:16 }}>＋</span>
+              Add "{query.trim()}" as new contact
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OrgForm({ initial, clients, onSave, onCancel, onAddNewContact }) {
   const blank = {
     name:"", owner:"", sponsor:"", sponsor2:"", officeContact:"",
     mgmtContact:"", assistance:"", loanOfficer:"", address:"",
-    entityType:"LLC", visibleTo:"All", label:"Regular",
+    entityType:"LLC", visibleTo:"All",
     phones:[{ number:"", tag:"Work" }], emails:[""],
   };
   const [form, setForm] = useState(initial ? {...initial} : blank);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  // "Add New Contact" inline: saves field key + prefill name, then hands off
+  const handleAddNew = (prefillName, fieldLabel) => {
+    // Store current form progress before opening new contact form
+    onAddNewContact(prefillName, (newClient) => {
+      // Callback fires when new client is saved — auto-fill the right field
+      const fieldMap = {
+        "Owner":                        "owner",
+        "Sponsor Information":          "sponsor",
+        "Sponsor 2 Information":        "sponsor2",
+        "Office Contact":               "officeContact",
+        "Management Company Contact":   "mgmtContact",
+        "Assistance":                   "assistance",
+        "Loan Officer":                 "loanOfficer",
+      };
+      const key = fieldMap[fieldLabel];
+      if (key) set(key, newClient.fullName);
+    });
+  };
 
   return (
     <div style={{ padding:"24px 20px 40px" }}>
@@ -1637,17 +1801,17 @@ function OrgForm({ initial, onSave, onCancel }) {
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
         <FormField label="Organization Name" value={form.name} onChange={v=>set("name",v)} required span2 />
-        <FormField label="Owner" value={form.owner} onChange={v=>set("owner",v)} />
+        <ContactAutocomplete label="Owner" value={form.owner} onChange={v=>set("owner",v)} clients={clients} onAddNew={handleAddNew} />
         <SelectField label="Entity Type" value={form.entityType} onChange={v=>set("entityType",v)} options={ENTITY_TYPES} />
-        <FormField label="Sponsor Information" value={form.sponsor} onChange={v=>set("sponsor",v)} />
-        <FormField label="Sponsor 2 Information" value={form.sponsor2} onChange={v=>set("sponsor2",v)} />
-        <FormField label="Office Contact" value={form.officeContact} onChange={v=>set("officeContact",v)} />
-        <FormField label="Management Company Contact" value={form.mgmtContact} onChange={v=>set("mgmtContact",v)} />
-        <FormField label="Assistance" value={form.assistance} onChange={v=>set("assistance",v)} />
-        <FormField label="Loan Officer" value={form.loanOfficer} onChange={v=>set("loanOfficer",v)} />
+        <ContactAutocomplete label="Sponsor Information" value={form.sponsor} onChange={v=>set("sponsor",v)} clients={clients} onAddNew={handleAddNew} />
+        <ContactAutocomplete label="Sponsor 2 Information" value={form.sponsor2} onChange={v=>set("sponsor2",v)} clients={clients} onAddNew={handleAddNew} />
+        <ContactAutocomplete label="Office Contact" value={form.officeContact} onChange={v=>set("officeContact",v)} clients={clients} onAddNew={handleAddNew} />
+        <ContactAutocomplete label="Management Company Contact" value={form.mgmtContact} onChange={v=>set("mgmtContact",v)} clients={clients} onAddNew={handleAddNew} />
+        <ContactAutocomplete label="Assistance" value={form.assistance} onChange={v=>set("assistance",v)} clients={clients} onAddNew={handleAddNew} />
+        <ContactAutocomplete label="Loan Officer" value={form.loanOfficer} onChange={v=>set("loanOfficer",v)} clients={clients} onAddNew={handleAddNew} />
         <AddressField label="Address" value={form.address} onChange={v=>set("address",v)} span2 />
-        <SelectField label="Labels" value={form.label} onChange={v=>set("label",v)} options={["Regular","Primary"]} />
         <SelectField label="Visible To" value={form.visibleTo} onChange={v=>set("visibleTo",v)} options={VISIBLE_TO} />
+        <div /> {/* grid spacer */}
         <MultiPhoneField phones={form.phones} onChange={v=>set("phones",v)} />
         <MultiEmailField emails={form.emails} onChange={v=>set("emails",v)} />
       </div>
@@ -1672,9 +1836,9 @@ function OrgForm({ initial, onSave, onCancel }) {
 function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
   const [q, setQ] = useState("");
   const [confirmDel, setConfirmDel] = useState(null);
-  const filtered = orgs.filter(o => !q || [o.name,o.owner,o.loanOfficer,o.entityType].some(f=>(f||"").toLowerCase().includes(q.toLowerCase())));
+  const filtered = orgs.filter(o => !q || [o.name,o.owner,o.loanOfficer,o.entityType,o.address].some(f=>(f||"").toLowerCase().includes(q.toLowerCase())));
   return (
-    <div style={{ padding:"20px 16px 90px", maxWidth:800, margin:"0 auto", width:"100%" }}>
+    <div style={{ padding:"20px 16px 90px", maxWidth:860, margin:"0 auto", width:"100%" }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, flexWrap:"wrap", gap:12 }}>
         <div>
           <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>DIRECTORY</div>
@@ -1694,34 +1858,66 @@ function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
         : filtered.map(o => (
           <div key={o.id} className="card-hover" style={{
             background:"white", border:`1px solid ${C.ivoryDark}`, borderLeft:`4px solid ${C.goldDark}`,
-            borderRadius:14, padding:"16px", marginBottom:10,
+            borderRadius:14, padding:"18px 18px 14px", marginBottom:12,
+            boxShadow:"0 1px 4px rgba(0,0,0,0.05)",
           }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+            {/* Header row: name + entity badge + actions */}
+            <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:12 }}>
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontWeight:"bold", fontSize:14, fontFamily:"Georgia, serif", color:C.charcoal }}>{o.name}</div>
-                <div style={{ fontSize:11, color:"#999", marginTop:3 }}>{o.entityType} · Owner: {o.owner || "—"} · Loan Officer: {o.loanOfficer || "—"}</div>
-                {o.address && <div style={{ fontSize:11, color:"#aaa", marginTop:3 }}>📍 {o.address}</div>}
-                <div style={{ display:"flex", gap:6, marginTop:8, flexWrap:"wrap" }}>
-                  {o.phones?.filter(p=>p.number).map((p,i)=>(
-                    <span key={i} style={{ fontSize:10, background:C.bg, padding:"3px 8px", borderRadius:10, color:C.charcoal }}>📞 {p.number} <span style={{ color:"#aaa" }}>({p.tag})</span></span>
-                  ))}
-                  {o.emails?.filter(Boolean).map((e,i)=>(
-                    <span key={i} style={{ fontSize:10, background:C.bg, padding:"3px 8px", borderRadius:10, color:C.charcoal }}>✉ {e}</span>
-                  ))}
+                <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                  <span style={{ fontWeight:"bold", fontSize:15, fontFamily:"Georgia, serif", color:C.charcoal }}>{o.name}</span>
+                  <span style={{
+                    fontSize:9, padding:"3px 9px", borderRadius:10, letterSpacing:1,
+                    background:`${C.goldDark}18`, color:C.goldDark, border:`1px solid ${C.goldDark}33`,
+                    fontWeight:"bold", whiteSpace:"nowrap",
+                  }}>{o.entityType}</span>
                 </div>
               </div>
-              <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8, flexShrink:0 }}>
-                <span style={{
-                  fontSize:9, padding:"4px 10px", borderRadius:10, letterSpacing:1,
-                  background: o.label==="Primary" ? `${C.goldDark}18` : "#F3F4F6",
-                  color: o.label==="Primary" ? C.goldDark : "#6B7280",
-                  border:`1px solid ${o.label==="Primary" ? C.goldDark+"44" : "#E5E7EB"}`,
-                }}>{o.label?.toUpperCase()}</span>
-                <div style={{ display:"flex", gap:8 }}>
-                  <button onClick={()=>onEdit(o)} className="btn-transition" style={{ padding:"8px 14px", background:C.charcoal, color:C.gold, border:"none", borderRadius:8, cursor:"pointer", fontSize:11 }}>EDIT</button>
-                  <button onClick={()=>setConfirmDel(o)} style={{ background:"none", border:"none", color:C.danger, cursor:"pointer", fontSize:11, textDecoration:"underline" }}>Delete</button>
-                </div>
+              <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+                <button onClick={()=>onEdit(o)} className="btn-transition" style={{ padding:"7px 14px", background:C.charcoal, color:C.gold, border:"none", borderRadius:8, cursor:"pointer", fontSize:11, letterSpacing:0.5 }}>EDIT</button>
+                <button onClick={()=>setConfirmDel(o)} style={{ background:"none", border:"none", color:C.danger, cursor:"pointer", fontSize:11, textDecoration:"underline", padding:"7px 4px" }}>Delete</button>
               </div>
+            </div>
+            {/* Metadata grid */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(160px, 1fr))", gap:"8px 16px" }}>
+              {o.owner && (
+                <div>
+                  <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>OWNER</div>
+                  <div style={{ fontSize:12, color:C.charcoal, fontWeight:"bold" }}>{o.owner}</div>
+                </div>
+              )}
+              {o.loanOfficer && (
+                <div>
+                  <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>LOAN OFFICER</div>
+                  <div style={{ fontSize:12, color:C.charcoal }}>{o.loanOfficer}</div>
+                </div>
+              )}
+              {o.phones?.find(p=>p.number) && (
+                <div>
+                  <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>PHONE</div>
+                  <a href={`tel:${o.phones.find(p=>p.number).number}`} style={{ fontSize:12, color:C.charcoal, textDecoration:"none", borderBottom:`1px solid ${C.gold}` }}>
+                    {o.phones.find(p=>p.number).number}
+                    <span style={{ fontSize:9, color:"#aaa", marginLeft:4 }}>({o.phones.find(p=>p.number).tag})</span>
+                  </a>
+                </div>
+              )}
+              {o.emails?.find(Boolean) && (
+                <div>
+                  <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>EMAIL</div>
+                  <a href={`mailto:${o.emails.find(Boolean)}`} style={{ fontSize:12, color:C.charcoal, textDecoration:"none", borderBottom:`1px solid ${C.gold}`, overflow:"hidden", textOverflow:"ellipsis", display:"block", whiteSpace:"nowrap" }}>
+                    {o.emails.find(Boolean)}
+                  </a>
+                </div>
+              )}
+              {o.address && (
+                <div style={{ gridColumn:"1/-1" }}>
+                  <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>ADDRESS</div>
+                  <a href={`https://maps.google.com/?q=${encodeURIComponent(o.address)}`} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize:12, color:C.charcoal, textDecoration:"none", borderBottom:`1px solid ${C.gold}` }}>
+                    📍 {o.address}
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         ))
@@ -1905,10 +2101,12 @@ export default function App() {
   const [editingClient,    setEditingClient]    = useState(null);
   const [orgs,             setOrgs]             = useState(INITIAL_ORGS);
   const [deals,            setDeals]            = useState(INITIAL_DEALS);
-  const [orgFormOpen,      setOrgFormOpen]      = useState(false);
-  const [editingOrg,       setEditingOrg]       = useState(null);
-  const [dealFormOpen,     setDealFormOpen]     = useState(false);
-  const [editingDeal,      setEditingDeal]      = useState(null);
+  const [orgFormOpen,       setOrgFormOpen]      = useState(false);
+  const [editingOrg,        setEditingOrg]       = useState(null);
+  const [dealFormOpen,      setDealFormOpen]     = useState(false);
+  const [editingDeal,       setEditingDeal]      = useState(null);
+  // Inline "Add New Contact" from OrgForm: stores {prefillName, callback}
+  const [addContactInline,  setAddContactInline] = useState(null);
 
   // Restrict workers to their allowed views
   const defaultView = user?.role === "manager" ? "dashboard" : "clients";
@@ -1957,13 +2155,22 @@ export default function App() {
 
   // Client handlers
   const handleClientSave = form => {
+    let saved;
     if (editingClient) {
-      setClients(cs => cs.map(c => c.id === editingClient.id ? { ...form, id: editingClient.id, createdAt: editingClient.createdAt } : c));
+      saved = { ...form, id: editingClient.id, createdAt: editingClient.createdAt };
+      setClients(cs => cs.map(c => c.id === editingClient.id ? saved : c));
     } else {
-      setClients(cs => [...cs, { ...form, id: Date.now(), createdAt: new Date().toISOString().slice(0, 10) }]);
+      saved = { ...form, id: Date.now(), createdAt: new Date().toISOString().slice(0, 10) };
+      setClients(cs => [...cs, saved]);
     }
     setClientFormOpen(false);
     setEditingClient(null);
+    // If opened from OrgForm "Add New Contact", fire callback and re-open OrgForm
+    if (addContactInline) {
+      addContactInline.callback(saved);
+      setAddContactInline(null);
+      setOrgFormOpen(true);
+    }
   };
   const handleClientEdit   = c  => { setEditingClient(c); setClientFormOpen(true); };
   const handleClientDelete = id => setClients(cs => cs.filter(c => c.id !== id));
@@ -2075,11 +2282,21 @@ export default function App() {
           </Modal>
         )}
         {orgFormOpen && (
-          <Modal onClose={() => { setOrgFormOpen(false); setEditingOrg(null); }} maxWidth={680}>
+          <Modal onClose={() => { setOrgFormOpen(false); setEditingOrg(null); }} maxWidth={700}>
             <OrgForm
               initial={editingOrg}
+              clients={clients}
               onSave={handleOrgSave}
               onCancel={() => { setOrgFormOpen(false); setEditingOrg(null); }}
+              onAddNewContact={(prefillName, cb) => {
+                // Pause OrgForm, open ClientForm pre-filled
+                setOrgFormOpen(false);
+                setAddContactInline({ prefillName, callback: cb });
+                setEditingClient({ fullName: prefillName, phone:"", email:"", address:"",
+                  idFileName:"", contractFileName:"", notes:"", paymentAmount:"",
+                  paymentStatus:"not_paid", dealStage:"intake", _isNew:true });
+                setClientFormOpen(true);
+              }}
             />
           </Modal>
         )}
@@ -2097,4 +2314,4 @@ export default function App() {
       </div>
     </>
   );
-                      }
+    }
