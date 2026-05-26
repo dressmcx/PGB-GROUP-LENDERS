@@ -88,7 +88,8 @@ const INITIAL_ORGS = [
 ];
 
 const INITIAL_DEALS = [
-  { id: 1, contactId: 1, orgId: 1, address: "45 Park Ave, New York, NY 10016", value: 2500000, closingDate: "2025-06-30", owner: "Y. Fried", label: "Primary", createdAt: "2025-01-15" },
+  { id: 1, contactId: 1, orgId: 1, address: "45 Park Ave, New York, NY 10016", value: 2500000, closingDate: "2025-06-30", owner: "Y. Fried", dealType: "Priority", dealStage: "commitment", paymentStatus: "paid", paymentAmount: 15000, idFileName: "torres_passport.pdf", contractFileName: "torres_contract.pdf", notes: "Fast mover. Multi-unit deal.", createdAt: "2025-01-15" },
+  { id: 2, contactId: 2, orgId: 1, address: "820 Wilshire Blvd, Los Angeles, CA 90017", value: 850000, closingDate: "2025-09-15", owner: "Y. Fried", dealType: "Regular", dealStage: "intake", paymentStatus: "not_paid", paymentAmount: 8500, idFileName: "", contractFileName: "", notes: "Waiting on ID scan.", createdAt: "2025-02-03" },
 ];
 
 const CATEGORIES   = ["Permanent", "Bridge to Perm", "Construction", "Owner Occupied", "Hard Money"];
@@ -415,11 +416,10 @@ function Header({ user, onLogout, onHome, onMenuToggle, sidebarOpen }) {
 // ─────────────────────────────────────────────────────────────
 function Sidebar({ activeNav, onNavigate, isOpen, onClose, userRole }) {
   const mainLinks = [
-    ...(userRole === "manager" ? [{ id: "dashboard", label: "Dashboard", icon: "◈" }] : []),
-    { id: "clients", label: "Clients",       icon: "👤" },
-    { id: "orgs",    label: "Organizations", icon: "🏢" },
+    { id: "clients", label: "Contacts",      icon: "👤" },
+    { id: "orgs",    label: "Orgs",          icon: "🏢" },
     { id: "deals",   label: "Deals",         icon: "🤝" },
-    ...(userRole === "manager" ? [{ id: "settings", label: "Settings", icon: "⚙" }] : []),
+    ...(userRole === "manager" ? [{ id: "dashboard", label: "Dashboard", icon: "◈" }, { id: "settings", label: "Settings", icon: "⚙" }] : []),
   ];
 
   return (
@@ -456,49 +456,14 @@ function Sidebar({ activeNav, onNavigate, isOpen, onClose, userRole }) {
         <div style={{ height: 1, background: `${C.goldDark}22`, margin: "12px 24px" }} />
         <div style={{ padding: "8px 24px", color: "#444", fontSize: 9, letterSpacing: 3 }}>SYSTEM</div>
         <div style={{ padding: "10px 24px", color: "#555", fontSize: 12, letterSpacing: 0.5 }}>
-          v2.1 · PCB Portal
+          v3.0 · PCB Portal
         </div>
       </nav>
     </>
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// BOTTOM NAV
-// ─────────────────────────────────────────────────────────────
-function BottomNav({ activeNav, onNavigate, userRole }) {
-  const items = [
-    ...(userRole === "manager" ? [{ id: "dashboard", label: "Home", icon: "◈" }] : []),
-    { id: "clients", label: "Clients", icon: "👤" },
-    { id: "orgs",    label: "Orgs",    icon: "🏢" },
-    { id: "deals",   label: "Deals",   icon: "🤝" },
-    ...(userRole === "manager" ? [{ id: "settings", label: "Settings", icon: "⚙" }] : []),
-  ];
-  return (
-    <div style={{
-      position: "fixed", bottom: 0, left: 0, right: 0,
-      background: C.charcoal, borderTop: `1px solid ${C.goldDark}22`,
-      display: "flex", zIndex: 190,
-      paddingBottom: "env(safe-area-inset-bottom, 0px)",
-    }}>
-      {items.map(item => (
-        <button key={item.id} onClick={() => onNavigate(item.id)} style={{
-          flex: 1, padding: "10px 0 8px", background: "none", border: "none",
-          cursor: "pointer", display: "flex", flexDirection: "column",
-          alignItems: "center", gap: 3,
-          color: activeNav === item.id ? C.gold : "#555",
-          transition: "color 0.15s",
-        }}>
-          <span style={{ fontSize: 16 }}>{item.icon}</span>
-          <span style={{ fontSize: 9, letterSpacing: 0.5 }}>{item.label}</span>
-          {activeNav === item.id && (
-            <div style={{ width: 16, height: 2, background: C.gold, borderRadius: 1 }} />
-          )}
-        </button>
-      ))}
-    </div>
-  );
-}
+// BottomNav removed — navigation is sidebar-only
 
 // ─────────────────────────────────────────────────────────────
 // FORM FIELDS
@@ -683,75 +648,38 @@ function DealPipeline({ currentStage }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// CLIENT FORM
+// CONTACT FORM (formerly Client Form — no pipeline/files here)
 // ─────────────────────────────────────────────────────────────
 function ClientForm({ initial, onSave, onCancel }) {
-  const blank = {
-    fullName: "", phone: "", email: "", address: "",
-    idFileName: "", contractFileName: "",
-    notes: "", paymentAmount: "", paymentStatus: "not_paid",
-    dealStage: "intake",
-  };
-  const [form, setForm] = useState(initial ? { ...initial, paymentAmount: initial.paymentAmount || "" } : blank);
+  const blank = { fullName: "", phone: "", email: "", address: "", notes: "" };
+  const [form, setForm] = useState(initial ? { ...initial } : blank);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-  const handleSave = () => {
-    if (!form.fullName.trim()) { alert("Client name is required."); return; }
-    onSave({ ...form, paymentAmount: parseFloat(form.paymentAmount) || 0 });
-  };
 
   return (
     <div style={{ padding: "24px 20px 40px" }}>
       <div style={{ width: 36, height: 4, background: C.ivoryDark, borderRadius: 2, margin: "0 auto 20px" }} />
-
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: initial?._isNew ? 10 : 24 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontFamily: "Georgia, serif", fontWeight: "normal", color: C.charcoal }}>
-          {initial?._isNew ? "Add New Contact" : initial ? "Edit Client" : "New Client"}
+          {initial?._isNew ? "Add New Contact" : initial ? "Edit Contact" : "New Contact"}
         </h2>
-        <button onClick={onCancel} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#aaa", lineHeight: 1 }}>×</button>
+        <button onClick={onCancel} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#aaa" }}>×</button>
       </div>
       {initial?._isNew && (
         <div style={{ background:`${C.goldDark}18`, border:`1px solid ${C.goldDark}44`, borderRadius:10, padding:"10px 14px", marginBottom:18, fontSize:12, color:C.goldDark }}>
           ← Adding new contact from Organization form. Save to return.
         </div>
       )}
-
-      <div style={{ background: C.bg, borderRadius: 12, padding: "14px 12px", marginBottom: 20 }}>
-        <div style={{ fontSize: 9, letterSpacing: 2, color: "#999", marginBottom: 10 }}>DEAL PROGRESS</div>
-        <DealPipeline currentStage={form.dealStage} />
-      </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <FormField label="Full Name" value={form.fullName} onChange={v => set("fullName", v)} required span2 />
         <FormField label="Phone" type="tel" value={form.phone} onChange={v => set("phone", v)} />
         <FormField label="Email" type="email" value={form.email} onChange={v => set("email", v)} />
         <AddressField label="Address" value={form.address} onChange={v => set("address", v)} span2 />
-
-        <SelectField label="Deal Stage" value={form.dealStage} onChange={v => set("dealStage", v)} options={DEAL_STAGES} />
-        <SelectField label="Payment Status" value={form.paymentStatus} onChange={v => set("paymentStatus", v)} options={PAYMENT_STATUSES} />
-
-        <FormField label="Payment Amount ($)" type="number" value={form.paymentAmount} onChange={v => set("paymentAmount", v)} />
-        <div /> {/* spacer to keep grid even */}
-
-        <FileField label="ID / Passport" fileName={form.idFileName} onChange={v => set("idFileName", v)} />
-        <FileField label="Contract / Document" fileName={form.contractFileName} onChange={v => set("contractFileName", v)} />
-
-        <FormField label="Notes / Comments" value={form.notes} onChange={v => set("notes", v)} textarea span2 />
+        <FormField label="Notes" value={form.notes} onChange={v => set("notes", v)} textarea span2 />
       </div>
-
       <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-        <button onClick={onCancel} className="btn-transition" style={{
-          flex: 1, padding: "14px", background: "white",
-          border: `1.5px solid ${C.ivoryDark}`, borderRadius: 12,
-          cursor: "pointer", fontSize: 13, color: C.charcoal,
-        }}>Cancel</button>
-        <button onClick={handleSave} className="btn-transition" style={{
-          flex: 2, padding: "14px",
-          background: C.goldDark, color: "white",
-          border: "none", borderRadius: 12,
-          cursor: "pointer", fontSize: 13, fontWeight: "bold", letterSpacing: 1,
-        }}>
-          {initial ? "SAVE CHANGES" : "ADD CLIENT"}
+        <button onClick={onCancel} className="btn-transition" style={{ flex:1, padding:"14px", background:"white", border:`1.5px solid ${C.ivoryDark}`, borderRadius:12, cursor:"pointer", fontSize:13, color:C.charcoal }}>Cancel</button>
+        <button onClick={() => { if(!form.fullName.trim()){alert("Name required.");return;} onSave(form); }} className="btn-transition" style={{ flex:2, padding:"14px", background:C.goldDark, color:"white", border:"none", borderRadius:12, cursor:"pointer", fontSize:13, fontWeight:"bold", letterSpacing:1 }}>
+          {initial && !initial._isNew ? "SAVE CHANGES" : "ADD CONTACT"}
         </button>
       </div>
     </div>
@@ -759,274 +687,105 @@ function ClientForm({ initial, onSave, onCancel }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// CLIENT CARD
+// CONTACT CARD (clean — no pipeline/files)
 // ─────────────────────────────────────────────────────────────
-function ClientCard({ client, onEdit, onDelete, onStageChange }) {
+function ClientCard({ client, onEdit, onDelete }) {
   const [expanded, setExpanded]           = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [pendingStage, setPendingStage]   = useState(null);
-  const s = stageInfo(client.dealStage);
 
   return (
     <>
       <div className="card-hover" style={{
-        background: "white", borderRadius: 14,
-        marginBottom: 10, overflow: "hidden",
-        border: `1px solid ${C.ivoryDark}`,
+        background: "white", borderRadius: 14, marginBottom: 10, overflow: "hidden",
+        border: `1px solid ${C.ivoryDark}`, borderLeft: `4px solid ${C.goldDark}`,
         boxShadow: expanded ? "0 4px 24px rgba(0,0,0,0.08)" : "0 1px 4px rgba(0,0,0,0.05)",
         transition: "box-shadow 0.2s",
-        borderLeft: `4px solid ${s.color}`,
       }}>
         <div onClick={() => setExpanded(v => !v)} style={{
-          padding: "14px 16px", display: "flex",
-          alignItems: "center", justifyContent: "space-between",
-          cursor: "pointer", gap: 10,
+          padding: "14px 16px", display: "flex", alignItems: "center",
+          justifyContent: "space-between", cursor: "pointer", gap: 10,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
             <div style={{
               width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
-              background: `linear-gradient(135deg, ${s.color}22, ${s.color}44)`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 16, color: s.color, fontWeight: "bold",
-            }}>
-              {client.fullName.charAt(0).toUpperCase()}
-            </div>
+              background: `${C.goldDark}22`, display: "flex", alignItems: "center",
+              justifyContent: "center", fontSize: 16, color: C.goldDark, fontWeight: "bold",
+            }}>{client.fullName.charAt(0).toUpperCase()}</div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: "bold", color: C.charcoal, fontSize: 14, fontFamily: "Georgia, serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {client.fullName}
-              </div>
-              <div style={{ color: "#999", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {client.email || client.phone || "No contact info"}
-              </div>
+              <div style={{ fontWeight: "bold", color: C.charcoal, fontSize: 14, fontFamily: "Georgia, serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{client.fullName}</div>
+              <div style={{ color: "#999", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{client.email || client.phone || "No contact info"}</div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <StageBadge stageId={client.dealStage} small />
-            <span style={{ color: C.gold, fontSize: 14, transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▾</span>
-          </div>
+          <span style={{ color: C.gold, fontSize: 14, transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
         </div>
 
         {expanded && (
-          <div className="anim-fade-up" style={{ padding: "0 16px 18px", borderTop: `1px solid ${C.ivory}` }}>
-            <div style={{ marginTop: 14, marginBottom: 14, overflowX: "auto" }}>
-              <DealPipeline currentStage={client.dealStage} />
+          <div className="anim-fade-up" style={{ padding: "4px 16px 18px", borderTop: `1px solid ${C.ivory}` }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14, marginBottom: 14 }}>
+              {client.phone && <div><div style={{ ...fieldLabel, marginBottom: 3 }}>PHONE</div><a href={`tel:${client.phone}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{client.phone}</a></div>}
+              {client.email && <div><div style={{ ...fieldLabel, marginBottom: 3 }}>EMAIL</div><a href={`mailto:${client.email}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}`, overflow: "hidden", textOverflow: "ellipsis", display: "block", whiteSpace: "nowrap" }}>{client.email}</a></div>}
+              {client.address && <div style={{ gridColumn: "1/-1" }}><div style={{ ...fieldLabel, marginBottom: 3 }}>ADDRESS</div><a href={`https://maps.google.com/?q=${encodeURIComponent(client.address)}`} target="_blank" rel="noopener noreferrer" style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>📍 {client.address}</a></div>}
+              {client.notes && <div style={{ gridColumn: "1/-1" }}><div style={{ ...fieldLabel, marginBottom: 3 }}>NOTES</div><div style={{ background: C.bg, borderRadius: 8, padding: "10px 12px", fontSize: 13, color: C.charcoal, lineHeight: 1.6 }}>{client.notes}</div></div>}
             </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-              {client.phone && (
-                <div>
-                  <div style={{ ...fieldLabel, marginBottom: 3 }}>PHONE</div>
-                  <a href={`tel:${client.phone}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{client.phone}</a>
-                </div>
-              )}
-              {client.email && (
-                <div>
-                  <div style={{ ...fieldLabel, marginBottom: 3 }}>EMAIL</div>
-                  <a href={`mailto:${client.email}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}`, overflow: "hidden", textOverflow: "ellipsis", display: "block", whiteSpace: "nowrap" }}>{client.email}</a>
-                </div>
-              )}
-              {client.address && (
-                <div style={{ gridColumn: "1/-1" }}>
-                  <div style={{ ...fieldLabel, marginBottom: 3 }}>ADDRESS</div>
-                  <a href={`https://maps.google.com/?q=${encodeURIComponent(client.address)}`} target="_blank" rel="noopener noreferrer" style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>
-                    📍 {client.address}
-                  </a>
-                </div>
-              )}
-              <div>
-                <div style={{ ...fieldLabel, marginBottom: 3 }}>PAYMENT</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <div style={{ color: C.charcoal, fontWeight: "bold", fontSize: 15, fontFamily: "Georgia, serif" }}>{fmt$(client.paymentAmount)}</div>
-                  <PayBadge statusId={client.paymentStatus} small />
-                </div>
-              </div>
-              <div>
-                <div style={{ ...fieldLabel, marginBottom: 3 }}>DOCUMENTS</div>
-                <div style={{ fontSize: 12, color: "#888" }}>
-                  {client.idFileName ? <div style={{ color: C.goldDark }}>📄 {client.idFileName}</div> : <div>No ID uploaded</div>}
-                  {client.contractFileName ? <div style={{ color: C.goldDark, marginTop: 2 }}>📋 {client.contractFileName}</div> : <div style={{ marginTop: 2 }}>No contract</div>}
-                </div>
-              </div>
-              {client.notes && (
-                <div style={{ gridColumn: "1/-1" }}>
-                  <div style={{ ...fieldLabel, marginBottom: 3 }}>NOTES</div>
-                  <div style={{ background: C.bg, borderRadius: 8, padding: "10px 12px", fontSize: 13, color: C.charcoal, lineHeight: 1.6 }}>{client.notes}</div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ ...fieldLabel, marginBottom: 6 }}>QUICK UPDATE STAGE</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {DEAL_STAGES.map(ds => (
-                  <button key={ds.id} onClick={() => {
-                    if (client.dealStage === ds.id) return;
-                    setPendingStage(ds);
-                  }} className="btn-transition"
-                    style={{
-                      padding: "5px 10px", borderRadius: 20, border: `1px solid ${ds.color}44`,
-                      background: client.dealStage === ds.id ? ds.color : ds.bg,
-                      color: client.dealStage === ds.id ? "white" : ds.color,
-                      cursor: "pointer", fontSize: 10, fontFamily: "Georgia, serif",
-                    }}>
-                    {ds.icon} {ds.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {pendingStage && (
-              <ConfirmModal
-                title="Update Deal Stage"
-                message={`Move "${client.fullName}" to "${pendingStage.label}"? This will update their deal progress.`}
-                confirmLabel="Update Stage"
-                onConfirm={() => { onStageChange(client.id, pendingStage.id); setPendingStage(null); }}
-                onCancel={() => setPendingStage(null)}
-              />
-            )}
-
-            <div style={{ display: "flex", gap: 8, paddingTop: 14, borderTop: `1px solid ${C.ivory}` }}>
-              <button onClick={e => { e.stopPropagation(); onEdit(client); }} className="btn-transition" style={{
-                flex: 1, padding: "11px", background: C.charcoal,
-                color: C.gold, border: "none", borderRadius: 10,
-                cursor: "pointer", fontSize: 12, letterSpacing: 1,
-              }}>EDIT</button>
-              <button onClick={e => { e.stopPropagation(); setConfirmDelete(true); }} className="btn-transition" style={{
-                padding: "11px 18px", background: C.dangerLight,
-                color: C.danger, border: `1px solid ${C.danger}22`, borderRadius: 10,
-                cursor: "pointer", fontSize: 12,
-              }}>Delete</button>
+            <div style={{ display: "flex", gap: 8, paddingTop: 12, borderTop: `1px solid ${C.ivory}` }}>
+              <button onClick={e => { e.stopPropagation(); onEdit(client); }} className="btn-transition" style={{ flex:1, padding:"11px", background:C.charcoal, color:C.gold, border:"none", borderRadius:10, cursor:"pointer", fontSize:12, letterSpacing:1 }}>EDIT</button>
+              <button onClick={e => { e.stopPropagation(); setConfirmDelete(true); }} className="btn-transition" style={{ padding:"11px 18px", background:C.dangerLight, color:C.danger, border:`1px solid ${C.danger}22`, borderRadius:10, cursor:"pointer", fontSize:12 }}>Delete</button>
             </div>
           </div>
         )}
       </div>
-
-      {confirmDelete && (
-        <ConfirmModal
-          title="Delete Client"
-          message={`Remove "${client.fullName}"? This cannot be undone.`}
-          confirmLabel="Delete"
-          danger
-          onConfirm={() => { onDelete(client.id); setConfirmDelete(false); }}
-          onCancel={() => setConfirmDelete(false)}
-        />
-      )}
+      {confirmDelete && <ConfirmModal title="Delete Contact" message={`Remove "${client.fullName}"? This cannot be undone.`} confirmLabel="Delete" danger onConfirm={() => { onDelete(client.id); setConfirmDelete(false); }} onCancel={() => setConfirmDelete(false)} />}
     </>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-// CLIENTS VIEW
+// CONTACTS VIEW (renamed from Clients; no pipeline here)
 // ─────────────────────────────────────────────────────────────
-function ClientsView({ clients, onAdd, onEdit, onDelete, onStageChange }) {
-  const [q, setQ]                     = useState("");
-  const [stageFilter, setStageFilter] = useState("all");
-  const [payFilter, setPayFilter]     = useState("all");
-  const [sortBy, setSortBy]           = useState("newest");
+function ClientsView({ clients, onAdd, onEdit, onDelete }) {
+  const [q, setQ]       = useState("");
+  const [sortBy, setSortBy] = useState("newest");
 
   const filtered = clients
-    .filter(c => {
-      const qLow = q.toLowerCase();
-      const match = !q || [c.fullName, c.email, c.phone, c.address, c.notes].some(f => (f || "").toLowerCase().includes(qLow));
-      const sMatch = stageFilter === "all" || c.dealStage === stageFilter;
-      const pMatch = payFilter === "all" || c.paymentStatus === payFilter;
-      return match && sMatch && pMatch;
-    })
-    .sort((a, b) => {
-      if (sortBy === "newest") return (b.id - a.id);
-      if (sortBy === "name")   return a.fullName.localeCompare(b.fullName);
-      if (sortBy === "amount") return (b.paymentAmount || 0) - (a.paymentAmount || 0);
-      return 0;
-    });
-
-  const totalPipeline = clients.reduce((sum, c) => sum + (c.paymentAmount || 0), 0);
-  const paidTotal     = clients.filter(c => c.paymentStatus === "paid").reduce((sum, c) => sum + (c.paymentAmount || 0), 0);
+    .filter(c => !q || [c.fullName, c.email, c.phone, c.address, c.notes].some(f => (f||"").toLowerCase().includes(q.toLowerCase())))
+    .sort((a,b) => sortBy==="name" ? a.fullName.localeCompare(b.fullName) : b.id-a.id);
 
   return (
-    <div style={{ padding: "20px 16px 90px", maxWidth: 800, margin: "0 auto", width: "100%" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+    <div style={{ padding:"20px 16px 32px", maxWidth:800, margin:"0 auto", width:"100%" }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, flexWrap:"wrap", gap:12 }}>
         <div>
-          <div style={{ color: C.goldDark, fontSize: 9, letterSpacing: 4, marginBottom: 4 }}>PIPELINE</div>
-          <h2 style={{ margin: 0, fontSize: 22, fontFamily: "Georgia, serif", fontWeight: "normal", color: C.charcoal }}>
-            Clients <span style={{ color: "#bbb", fontSize: 16 }}>({clients.length})</span>
+          <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>DIRECTORY</div>
+          <h2 style={{ margin:0, fontSize:22, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
+            Contacts <span style={{ color:"#bbb", fontSize:16 }}>({clients.length})</span>
           </h2>
         </div>
         <button onClick={onAdd} className="btn-transition" style={{
-          padding: "12px 20px", background: C.charcoal,
-          color: C.gold, border: "none", borderRadius: 12,
-          cursor: "pointer", fontSize: 12, letterSpacing: 2,
-          display: "flex", alignItems: "center", gap: 8,
+          padding:"12px 20px", background:C.charcoal, color:C.gold,
+          border:"none", borderRadius:12, cursor:"pointer", fontSize:12, letterSpacing:2,
+          display:"flex", alignItems:"center", gap:8,
         }}>
-          <span style={{ fontSize: 18 }}>+</span> NEW CLIENT
+          <span style={{ fontSize:18 }}>+</span> NEW CONTACT
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-        <div style={{ background: "white", borderRadius: 12, padding: "14px 16px", border: `1px solid ${C.ivoryDark}`, borderLeft: `4px solid ${C.goldDark}` }}>
-          <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 2, marginBottom: 4 }}>TOTAL PIPELINE</div>
-          <div style={{ fontSize: 20, fontWeight: "bold", fontFamily: "Georgia, serif", color: C.charcoal }}>{fmt$(totalPipeline)}</div>
-        </div>
-        <div style={{ background: "white", borderRadius: 12, padding: "14px 16px", border: `1px solid ${C.ivoryDark}`, borderLeft: `4px solid ${C.success}` }}>
-          <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 2, marginBottom: 4 }}>COLLECTED</div>
-          <div style={{ fontSize: 20, fontWeight: "bold", fontFamily: "Georgia, serif", color: C.success }}>{fmt$(paidTotal)}</div>
-        </div>
-      </div>
-
-      <div style={{ background: "white", borderRadius: 14, padding: "16px", marginBottom: 16, border: `1px solid ${C.ivoryDark}` }}>
-        <input type="text" placeholder="🔍  Search clients by name, email, phone…"
-          value={q} onChange={e => setQ(e.target.value)}
-          style={{ ...inputStyle, marginBottom: 10, fontSize: 13 }}
-        />
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <select value={stageFilter} onChange={e => setStageFilter(e.target.value)}
-            style={{ flex: 1, minWidth: 130, padding: "9px 12px", background: C.bg, border: `1.5px solid ${C.ivoryDark}`, borderRadius: 8, fontSize: 12, cursor: "pointer" }}>
-            <option value="all">All Stages</option>
-            {DEAL_STAGES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-          </select>
-          <select value={payFilter} onChange={e => setPayFilter(e.target.value)}
-            style={{ flex: 1, minWidth: 120, padding: "9px 12px", background: C.bg, border: `1.5px solid ${C.ivoryDark}`, borderRadius: 8, fontSize: 12, cursor: "pointer" }}>
-            <option value="all">All Payments</option>
-            {PAYMENT_STATUSES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-          </select>
-          <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-            style={{ flex: 1, minWidth: 110, padding: "9px 12px", background: C.bg, border: `1.5px solid ${C.ivoryDark}`, borderRadius: 8, fontSize: 12, cursor: "pointer" }}>
-            <option value="newest">Newest</option>
+      <div style={{ background:"white", borderRadius:14, padding:"14px", marginBottom:16, border:`1px solid ${C.ivoryDark}` }}>
+        <input type="text" placeholder="🔍  Search contacts by name, email, phone…" value={q} onChange={e=>setQ(e.target.value)}
+          style={{...inputStyle, marginBottom:10, fontSize:13}} />
+        <div style={{ display:"flex", gap:8 }}>
+          <select value={sortBy} onChange={e=>setSortBy(e.target.value)}
+            style={{ flex:1, padding:"9px 12px", background:C.bg, border:`1.5px solid ${C.ivoryDark}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>
+            <option value="newest">Newest First</option>
             <option value="name">Name A–Z</option>
-            <option value="amount">Amount</option>
           </select>
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
-        {DEAL_STAGES.map(s => {
-          const count = clients.filter(c => c.dealStage === s.id).length;
-          if (count === 0) return null;
-          return (
-            <button key={s.id} onClick={() => setStageFilter(stageFilter === s.id ? "all" : s.id)} className="btn-transition"
-              style={{
-                padding: "4px 10px", borderRadius: 20, cursor: "pointer", fontSize: 10,
-                background: stageFilter === s.id ? s.color : s.bg,
-                color: stageFilter === s.id ? "white" : s.color,
-                border: `1px solid ${s.color}33`,
-              }}>
-              {s.icon} {s.label} ({count})
-            </button>
-          );
-        })}
-      </div>
+      <div style={{ color:"#aaa", fontSize:11, marginBottom:12 }}>{filtered.length} contact{filtered.length!==1?"s":""}</div>
 
-      <div style={{ color: "#aaa", fontSize: 11, marginBottom: 12 }}>
-        {filtered.length} client{filtered.length !== 1 ? "s" : ""} shown
-      </div>
-
-      {filtered.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "50px 0", color: "#bbb", fontSize: 14 }}>
-          No clients found. <span style={{ color: C.goldDark, cursor: "pointer" }} onClick={onAdd}>Add one →</span>
-        </div>
-      ) : (
-        filtered.map(c => (
-          <ClientCard key={c.id} client={c} onEdit={onEdit} onDelete={onDelete} onStageChange={onStageChange} />
-        ))
-      )}
+      {filtered.length===0
+        ? <div style={{ textAlign:"center", padding:"50px 0", color:"#bbb", fontSize:14 }}>No contacts. <span style={{ color:C.goldDark, cursor:"pointer" }} onClick={onAdd}>Add one →</span></div>
+        : filtered.map(c => <ClientCard key={c.id} client={c} onEdit={onEdit} onDelete={onDelete} />)
+      }
     </div>
   );
 }
@@ -1064,8 +823,8 @@ function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user
         <div style={{ color:"#aaa", fontSize:12, marginTop:4 }}>{activeClients} active client{activeClients!==1?"s":""} in pipeline</div>
       </div>
 
-      {/* ── KPI Banner — 4 columns ── */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:10, marginBottom:24 }}>
+      {/* ── KPI Banner — 2 cols mobile / 4 cols desktop ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(2, 1fr)", gap:10, marginBottom:20 }}>
         {kpis.map((k,i) => (
           <div key={i} style={{
             background:"white", borderRadius:14, padding:"16px 14px",
@@ -1084,8 +843,8 @@ function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user
         ))}
       </div>
 
-      {/* ── Two-column workspace layout ── */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 340px", gap:16, alignItems:"start" }}>
+      {/* ── Workspace: single col on mobile, 2-col on wider screens ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr)", gap:16, alignItems:"start" }}>
 
         {/* LEFT — Pipeline Kanban columns */}
         <div>
@@ -1838,7 +1597,7 @@ function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
   const [confirmDel, setConfirmDel] = useState(null);
   const filtered = orgs.filter(o => !q || [o.name,o.owner,o.loanOfficer,o.entityType,o.address].some(f=>(f||"").toLowerCase().includes(q.toLowerCase())));
   return (
-    <div style={{ padding:"20px 16px 90px", maxWidth:860, margin:"0 auto", width:"100%" }}>
+    <div style={{ padding:"20px 16px 32px", maxWidth:860, margin:"0 auto", width:"100%" }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, flexWrap:"wrap", gap:12 }}>
         <div>
           <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>DIRECTORY</div>
@@ -1861,63 +1620,60 @@ function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
             borderRadius:14, padding:"18px 18px 14px", marginBottom:12,
             boxShadow:"0 1px 4px rgba(0,0,0,0.05)",
           }}>
-            {/* Header row: name + entity badge + actions */}
-            <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:12 }}>
+            {/* TOP ROW: Name + Entity Badge + Actions */}
+            <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10, marginBottom:10 }}>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-                  <span style={{ fontWeight:"bold", fontSize:15, fontFamily:"Georgia, serif", color:C.charcoal }}>{o.name}</span>
-                  <span style={{
-                    fontSize:9, padding:"3px 9px", borderRadius:10, letterSpacing:1,
-                    background:`${C.goldDark}18`, color:C.goldDark, border:`1px solid ${C.goldDark}33`,
-                    fontWeight:"bold", whiteSpace:"nowrap",
-                  }}>{o.entityType}</span>
+                  <span style={{ fontWeight:"bold", fontSize:15, fontFamily:"Georgia, serif", color:C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.name}</span>
+                  <span style={{ fontSize:9, padding:"3px 9px", borderRadius:10, letterSpacing:1, background:`${C.goldDark}18`, color:C.goldDark, border:`1px solid ${C.goldDark}33`, fontWeight:"bold", whiteSpace:"nowrap" }}>
+                    {o.entityType}
+                  </span>
                 </div>
               </div>
-              <div style={{ display:"flex", gap:8, flexShrink:0 }}>
-                <button onClick={()=>onEdit(o)} className="btn-transition" style={{ padding:"7px 14px", background:C.charcoal, color:C.gold, border:"none", borderRadius:8, cursor:"pointer", fontSize:11, letterSpacing:0.5 }}>EDIT</button>
-                <button onClick={()=>setConfirmDel(o)} style={{ background:"none", border:"none", color:C.danger, cursor:"pointer", fontSize:11, textDecoration:"underline", padding:"7px 4px" }}>Delete</button>
+              <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                <button onClick={()=>onEdit(o)} className="btn-transition" style={{ padding:"7px 12px", background:C.charcoal, color:C.gold, border:"none", borderRadius:8, cursor:"pointer", fontSize:11 }}>EDIT</button>
+                <button onClick={()=>setConfirmDel(o)} style={{ background:"none", border:"none", color:C.danger, cursor:"pointer", fontSize:11, textDecoration:"underline", padding:"7px 4px" }}>Del</button>
               </div>
             </div>
-            {/* Metadata grid */}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(160px, 1fr))", gap:"8px 16px" }}>
-              {o.owner && (
-                <div>
-                  <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>OWNER</div>
-                  <div style={{ fontSize:12, color:C.charcoal, fontWeight:"bold" }}>{o.owner}</div>
-                </div>
-              )}
-              {o.loanOfficer && (
-                <div>
-                  <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>LOAN OFFICER</div>
-                  <div style={{ fontSize:12, color:C.charcoal }}>{o.loanOfficer}</div>
-                </div>
-              )}
-              {o.phones?.find(p=>p.number) && (
-                <div>
-                  <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>PHONE</div>
-                  <a href={`tel:${o.phones.find(p=>p.number).number}`} style={{ fontSize:12, color:C.charcoal, textDecoration:"none", borderBottom:`1px solid ${C.gold}` }}>
-                    {o.phones.find(p=>p.number).number}
-                    <span style={{ fontSize:9, color:"#aaa", marginLeft:4 }}>({o.phones.find(p=>p.number).tag})</span>
-                  </a>
-                </div>
-              )}
-              {o.emails?.find(Boolean) && (
-                <div>
-                  <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>EMAIL</div>
-                  <a href={`mailto:${o.emails.find(Boolean)}`} style={{ fontSize:12, color:C.charcoal, textDecoration:"none", borderBottom:`1px solid ${C.gold}`, overflow:"hidden", textOverflow:"ellipsis", display:"block", whiteSpace:"nowrap" }}>
-                    {o.emails.find(Boolean)}
-                  </a>
-                </div>
-              )}
+
+            {/* MIDDLE ROW: Owner + Loan Officer side by side */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+              <div>
+                <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>OWNER</div>
+                <div style={{ fontSize:13, color:C.charcoal, fontWeight:"bold" }}>{o.owner||"—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>LOAN OFFICER</div>
+                <div style={{ fontSize:13, color:C.charcoal }}>{o.loanOfficer||"—"}</div>
+              </div>
+            </div>
+
+            {/* FOOTER: Address · Phone · Email */}
+            <div style={{ borderTop:`1px solid ${C.ivory}`, paddingTop:10, display:"flex", flexDirection:"column", gap:6 }}>
               {o.address && (
-                <div style={{ gridColumn:"1/-1" }}>
-                  <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>ADDRESS</div>
-                  <a href={`https://maps.google.com/?q=${encodeURIComponent(o.address)}`} target="_blank" rel="noopener noreferrer"
-                    style={{ fontSize:12, color:C.charcoal, textDecoration:"none", borderBottom:`1px solid ${C.gold}` }}>
-                    📍 {o.address}
-                  </a>
-                </div>
+                <a href={`https://maps.google.com/?q=${encodeURIComponent(o.address)}`} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize:12, color:C.charcoal, textDecoration:"none", display:"flex", alignItems:"center", gap:5 }}>
+                  <span style={{ color:C.goldDark }}>📍</span>
+                  <span style={{ borderBottom:`1px solid ${C.gold}`, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.address}</span>
+                </a>
               )}
+              <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+                {o.phones?.find(p=>p.number) && (
+                  <a href={`tel:${o.phones.find(p=>p.number).number}`}
+                    style={{ fontSize:12, color:C.charcoal, textDecoration:"none", display:"flex", alignItems:"center", gap:4 }}>
+                    <span style={{ color:C.goldDark }}>📞</span>
+                    <span style={{ borderBottom:`1px solid ${C.gold}` }}>{o.phones.find(p=>p.number).number}</span>
+                    <span style={{ fontSize:9, color:"#aaa" }}>({o.phones.find(p=>p.number).tag})</span>
+                  </a>
+                )}
+                {o.emails?.find(Boolean) && (
+                  <a href={`mailto:${o.emails.find(Boolean)}`}
+                    style={{ fontSize:12, color:C.charcoal, textDecoration:"none", display:"flex", alignItems:"center", gap:4, minWidth:0 }}>
+                    <span style={{ color:C.goldDark }}>✉</span>
+                    <span style={{ borderBottom:`1px solid ${C.gold}`, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.emails.find(Boolean)}</span>
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         ))
@@ -1933,149 +1689,317 @@ function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// DEAL FORM
+// DEAL FORM — full pipeline hub with stages, payment, files
 // ─────────────────────────────────────────────────────────────
+const SEL_STYLE = {
+  ...({} /* placeholder */),
+  cursor:"pointer", appearance:"none",
+  backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
+  backgroundRepeat:"no-repeat", backgroundPosition:"right 14px center",
+};
+
 function DealForm({ initial, clients, orgs, onSave, onCancel }) {
   const blank = {
-    contactId: clients[0]?.id || "", orgId: orgs[0]?.id || "",
-    address:"", value:"", closingDate:"", owner:"", label:"Regular",
+    contactId:"", orgId:"",
+    address:"", value:"", closingDate:"", owner:"",
+    dealType:"Regular", dealStage:"intake",
+    paymentStatus:"not_paid", paymentAmount:"",
+    idFileName:"", contractFileName:"",
+    notes:"",
   };
-  const [form, setForm] = useState(initial ? {...initial} : blank);
+  const [form, setForm]     = useState(initial ? {...initial, paymentAmount: initial.paymentAmount||"", value: initial.value||""} : blank);
+  const [pendingStage, setPendingStage] = useState(null);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
+  const isPriority = form.dealType === "Priority";
+
   return (
-    <div style={{ padding:"24px 20px 40px" }}>
+    <div style={{ padding:"24px 20px 48px" }}>
       <div style={{ width:36, height:4, background:C.ivoryDark, borderRadius:2, margin:"0 auto 20px" }} />
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
-        <h2 style={{ margin:0, fontSize:20, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
-          {initial ? "Edit Deal" : "Add Deal"}
-        </h2>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <h2 style={{ margin:0, fontSize:20, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
+            {initial ? "Edit Deal" : "Add Deal"}
+          </h2>
+          {isPriority && (
+            <span style={{ fontSize:10, letterSpacing:1, padding:"4px 10px", borderRadius:10, background:"#FEE2E2", color:C.danger, border:`1px solid ${C.danger}33`, fontWeight:"bold" }}>
+              ● PRIORITY
+            </span>
+          )}
+        </div>
         <button onClick={onCancel} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#aaa" }}>×</button>
       </div>
+
+      {/* Deal Progress Pipeline */}
+      <div style={{ background:C.bg, borderRadius:12, padding:"14px 12px", marginBottom:20 }}>
+        <div style={{ fontSize:9, letterSpacing:2, color:"#999", marginBottom:10 }}>DEAL PROGRESS</div>
+        <DealPipeline currentStage={form.dealStage} />
+      </div>
+
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+        {/* Contact & Org linked dropdowns */}
         <div>
           <div style={fieldLabel}>CONTACT PERSON</div>
-          <select value={form.contactId} onChange={e=>set("contactId", Number(e.target.value))}
-            style={{...inputStyle, cursor:"pointer", appearance:"none",
-              backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
-              backgroundRepeat:"no-repeat", backgroundPosition:"right 14px center"}}>
-            <option value="">— Select Client —</option>
+          <select value={form.contactId} onChange={e=>set("contactId",Number(e.target.value))} style={{...inputStyle,...SEL_STYLE}}>
+            <option value="">— Select Contact —</option>
             {clients.map(c=><option key={c.id} value={c.id}>{c.fullName}</option>)}
           </select>
         </div>
         <div>
           <div style={fieldLabel}>ORGANIZATION</div>
-          <select value={form.orgId} onChange={e=>set("orgId", Number(e.target.value))}
-            style={{...inputStyle, cursor:"pointer", appearance:"none",
-              backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
-              backgroundRepeat:"no-repeat", backgroundPosition:"right 14px center"}}>
+          <select value={form.orgId} onChange={e=>set("orgId",Number(e.target.value))} style={{...inputStyle,...SEL_STYLE}}>
             <option value="">— Select Organization —</option>
             {orgs.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
         </div>
+
         <AddressField label="Address" value={form.address} onChange={v=>set("address",v)} span2 />
+
+        {/* Value */}
         <div>
           <div style={fieldLabel}>VALUE</div>
           <div style={{ position:"relative" }}>
             <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"#888", fontSize:14 }}>$</span>
-            <input type="number" value={form.value} onChange={e=>set("value",e.target.value)} placeholder="0"
-              style={{...inputStyle, paddingLeft:28}} />
+            <input type="number" value={form.value} onChange={e=>set("value",e.target.value)} placeholder="0" style={{...inputStyle, paddingLeft:28}} />
           </div>
         </div>
+
         <FormField label="Expected Closing Date" type="date" value={form.closingDate} onChange={v=>set("closingDate",v)} />
         <FormField label="Owner" value={form.owner} onChange={v=>set("owner",v)} />
-        <SelectField label="Labels" value={form.label} onChange={v=>set("label",v)} options={["Regular","Primary"]} />
+
+        {/* Deal Type — Priority = Red */}
+        <div>
+          <div style={fieldLabel}>DEAL TYPE</div>
+          <select value={form.dealType} onChange={e=>set("dealType",e.target.value)}
+            style={{...inputStyle,...SEL_STYLE,
+              color: form.dealType==="Priority" ? C.danger : C.charcoal,
+              fontWeight: form.dealType==="Priority" ? "bold" : "normal",
+              border: form.dealType==="Priority" ? `1.5px solid ${C.danger}88` : `1.5px solid ${C.ivoryDark}`,
+            }}>
+            <option value="Regular">Regular</option>
+            <option value="Priority">Priority</option>
+          </select>
+        </div>
+
+        {/* Deal Stage */}
+        <div>
+          <div style={fieldLabel}>DEAL STAGE</div>
+          <select value={form.dealStage} onChange={e=>{ setPendingStage(e.target.value); }} style={{...inputStyle,...SEL_STYLE}}>
+            {DEAL_STAGES.map(s=><option key={s.id} value={s.id}>{s.icon} {s.label}</option>)}
+          </select>
+        </div>
+
+        {/* Payment */}
+        <SelectField label="Payment Status" value={form.paymentStatus} onChange={v=>set("paymentStatus",v)} options={PAYMENT_STATUSES} />
+        <div>
+          <div style={fieldLabel}>PAYMENT AMOUNT ($)</div>
+          <div style={{ position:"relative" }}>
+            <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"#888", fontSize:14 }}>$</span>
+            <input type="number" value={form.paymentAmount} onChange={e=>set("paymentAmount",e.target.value)} placeholder="0" style={{...inputStyle, paddingLeft:28}} />
+          </div>
+        </div>
+
+        {/* File uploads */}
+        <FileField label="ID / Passport" fileName={form.idFileName} onChange={v=>set("idFileName",v)} />
+        <FileField label="Contract / Document" fileName={form.contractFileName} onChange={v=>set("contractFileName",v)} />
+
+        <FormField label="Notes / Comments" value={form.notes} onChange={v=>set("notes",v)} textarea span2 />
       </div>
+
+      {/* Stage change confirmation */}
+      {pendingStage && pendingStage !== form.dealStage && (
+        <ConfirmModal
+          title="Update Deal Stage"
+          message={`Move this deal to "${stageInfo(pendingStage).label}"?`}
+          confirmLabel="Update Stage"
+          onConfirm={() => { set("dealStage", pendingStage); setPendingStage(null); }}
+          onCancel={() => setPendingStage(null)}
+        />
+      )}
+
       <div style={{ display:"flex", gap:10, marginTop:24 }}>
-        <button onClick={onCancel} className="btn-transition" style={{
-          flex:1, padding:"14px", background:"white", border:`1.5px solid ${C.ivoryDark}`,
-          borderRadius:12, cursor:"pointer", fontSize:13, color:C.charcoal,
-        }}>Cancel</button>
-        <button onClick={()=>{ if(!form.address.trim()){alert("Address is required.");return;} onSave({...form, value: parseFloat(form.value)||0}); }}
+        <button onClick={onCancel} className="btn-transition" style={{ flex:1, padding:"14px", background:"white", border:`1.5px solid ${C.ivoryDark}`, borderRadius:12, cursor:"pointer", fontSize:13, color:C.charcoal }}>Cancel</button>
+        <button onClick={()=>{ if(!form.address.trim()){alert("Address is required.");return;} onSave({...form, value:parseFloat(form.value)||0, paymentAmount:parseFloat(form.paymentAmount)||0}); }}
           className="btn-transition" style={{
-            flex:2, padding:"14px", background:C.goldDark, color:"white",
-            border:"none", borderRadius:12, cursor:"pointer", fontSize:13, fontWeight:"bold", letterSpacing:1,
-          }}>{initial ? "SAVE CHANGES" : "ADD DEAL"}</button>
+            flex:2, padding:"14px",
+            background: isPriority ? C.danger : C.goldDark,
+            color:"white", border:"none", borderRadius:12,
+            cursor:"pointer", fontSize:13, fontWeight:"bold", letterSpacing:1,
+          }}>
+          {initial ? "SAVE CHANGES" : "ADD DEAL"}
+        </button>
       </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-// DEALS VIEW
+// DEALS VIEW — pipeline hub with stage workflow + Priority/Regular styling
 // ─────────────────────────────────────────────────────────────
-function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete }) {
-  const [q, setQ] = useState("");
+function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChange }) {
+  const [q, setQ]               = useState("");
+  const [typeFilter, setType]   = useState("all");
+  const [stageFilter, setStage] = useState("all");
   const [confirmDel, setConfirmDel] = useState(null);
+
   const getClient = id => clients.find(c=>c.id===Number(id));
   const getOrg    = id => orgs.find(o=>o.id===Number(id));
-  const filtered  = deals.filter(d=>{
-    const cl = getClient(d.contactId);
-    const org = getOrg(d.orgId);
-    return !q || [d.address, cl?.fullName, org?.name, d.owner].some(f=>(f||"").toLowerCase().includes(q.toLowerCase()));
+
+  const filtered = deals.filter(d=>{
+    const cl = getClient(d.contactId), org = getOrg(d.orgId);
+    const matchQ = !q || [d.address,cl?.fullName,org?.name,d.owner].some(f=>(f||"").toLowerCase().includes(q.toLowerCase()));
+    const matchT = typeFilter==="all" || d.dealType===typeFilter;
+    const matchS = stageFilter==="all" || d.dealStage===stageFilter;
+    return matchQ && matchT && matchS;
   });
-  const totalValue = deals.reduce((s,d)=>s+(d.value||0),0);
+
+  const totalValue    = deals.reduce((s,d)=>s+(d.value||0),0);
+  const totalPay      = deals.reduce((s,d)=>s+(d.paymentAmount||0),0);
+  const paidTotal     = deals.filter(d=>d.paymentStatus==="paid").reduce((s,d)=>s+(d.paymentAmount||0),0);
+  const priorityCount = deals.filter(d=>d.dealType==="Priority").length;
+
   return (
-    <div style={{ padding:"20px 16px 90px", maxWidth:800, margin:"0 auto", width:"100%" }}>
+    <div style={{ padding:"20px 16px 32px", maxWidth:900, margin:"0 auto", width:"100%" }}>
+
+      {/* Header */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, flexWrap:"wrap", gap:12 }}>
         <div>
-          <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>PIPELINE</div>
+          <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>PIPELINE HUB</div>
           <h2 style={{ margin:0, fontSize:22, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
             Deals <span style={{ color:"#bbb", fontSize:16 }}>({deals.length})</span>
+            {priorityCount>0 && <span style={{ fontSize:11, marginLeft:10, color:C.danger, fontWeight:"bold" }}>● {priorityCount} Priority</span>}
           </h2>
         </div>
-        <button onClick={onAdd} className="btn-transition" style={{
-          padding:"12px 20px", background:C.charcoal, color:C.gold,
-          border:"none", borderRadius:12, cursor:"pointer", fontSize:12, letterSpacing:2,
-        }}>+ ADD DEAL</button>
+        <button onClick={onAdd} className="btn-transition" style={{ padding:"12px 20px", background:C.charcoal, color:C.gold, border:"none", borderRadius:12, cursor:"pointer", fontSize:12, letterSpacing:2 }}>+ ADD DEAL</button>
       </div>
-      <div style={{ background:"white", borderRadius:12, padding:"14px 16px", border:`1px solid ${C.ivoryDark}`, borderLeft:`4px solid ${C.goldDark}`, marginBottom:16 }}>
-        <div style={{ fontSize:9, color:"#aaa", letterSpacing:2, marginBottom:4 }}>TOTAL DEAL VALUE</div>
-        <div style={{ fontSize:22, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.charcoal }}>{fmt$(totalValue)}</div>
+
+      {/* KPI strip */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:8, marginBottom:20 }}>
+        {[
+          { label:"TOTAL VALUE",   val:fmt$(totalValue),  color:C.goldDark },
+          { label:"FEE PIPELINE",  val:fmt$(totalPay),    color:C.warning },
+          { label:"COLLECTED",     val:fmt$(paidTotal),   color:C.success },
+          { label:"PRIORITY",      val:priorityCount,     color:C.danger },
+        ].map((k,i)=>(
+          <div key={i} style={{ background:"white", borderRadius:12, padding:"12px 10px", border:`1px solid ${C.ivoryDark}`, borderTop:`3px solid ${k.color}`, textAlign:"center" }}>
+            <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>{k.label}</div>
+            <div style={{ fontSize:16, fontWeight:"bold", fontFamily:"Georgia, serif", color:k.color, marginTop:4 }}>{k.val}</div>
+          </div>
+        ))}
       </div>
-      <input type="text" placeholder="🔍  Search deals by address, client, org…" value={q} onChange={e=>setQ(e.target.value)}
-        style={{...inputStyle, marginBottom:16}} />
-      {filtered.length === 0
-        ? <div style={{ textAlign:"center", padding:"50px 0", color:"#bbb" }}>No deals found.</div>
-        : filtered.map(d => {
-          const cl  = getClient(d.contactId);
-          const org = getOrg(d.orgId);
+
+      {/* Filters */}
+      <div style={{ background:"white", borderRadius:14, padding:"14px", marginBottom:16, border:`1px solid ${C.ivoryDark}` }}>
+        <input type="text" placeholder="🔍  Search deals by address, contact, org…" value={q} onChange={e=>setQ(e.target.value)}
+          style={{...inputStyle, marginBottom:10, fontSize:13}} />
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <select value={typeFilter} onChange={e=>setType(e.target.value)} style={{ flex:1, minWidth:110, padding:"9px 12px", background:C.bg, border:`1.5px solid ${C.ivoryDark}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>
+            <option value="all">All Types</option>
+            <option value="Regular">Regular</option>
+            <option value="Priority">Priority</option>
+          </select>
+          <select value={stageFilter} onChange={e=>setStage(e.target.value)} style={{ flex:2, minWidth:160, padding:"9px 12px", background:C.bg, border:`1.5px solid ${C.ivoryDark}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>
+            <option value="all">All Stages</option>
+            {DEAL_STAGES.map(s=><option key={s.id} value={s.id}>{s.icon} {s.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Stage quick-filter pills */}
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
+        {DEAL_STAGES.map(s=>{
+          const cnt = deals.filter(d=>d.dealStage===s.id).length;
+          if(!cnt) return null;
+          return (
+            <button key={s.id} onClick={()=>setStage(stageFilter===s.id?"all":s.id)} className="btn-transition"
+              style={{ padding:"4px 10px", borderRadius:20, cursor:"pointer", fontSize:10, border:`1px solid ${s.color}33`,
+                background:stageFilter===s.id?s.color:s.bg, color:stageFilter===s.id?"white":s.color }}>
+              {s.icon} {s.label} ({cnt})
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ color:"#aaa", fontSize:11, marginBottom:12 }}>{filtered.length} deal{filtered.length!==1?"s":""} shown</div>
+
+      {/* Deal cards */}
+      {filtered.length===0
+        ? <div style={{ textAlign:"center", padding:"50px 0", color:"#bbb" }}>No deals found. <span style={{ color:C.goldDark, cursor:"pointer" }} onClick={onAdd}>Add one →</span></div>
+        : filtered.map(d=>{
+          const cl   = getClient(d.contactId);
+          const org  = getOrg(d.orgId);
+          const s    = stageInfo(d.dealStage);
+          const isPri = d.dealType==="Priority";
+          const payP  = payInfo(d.paymentStatus);
+
           return (
             <div key={d.id} className="card-hover" style={{
-              background:"white", border:`1px solid ${C.ivoryDark}`, borderLeft:`4px solid ${C.info}`,
-              borderRadius:14, padding:"16px", marginBottom:10,
+              background:"white", borderRadius:14, marginBottom:12, overflow:"hidden",
+              border:`1px solid ${isPri ? C.danger+"55" : C.ivoryDark}`,
+              borderLeft:`4px solid ${isPri ? C.danger : s.color}`,
+              boxShadow: isPri ? `0 2px 12px ${C.danger}18` : "0 1px 4px rgba(0,0,0,0.05)",
             }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontWeight:"bold", fontSize:14, fontFamily:"Georgia, serif", color:C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.address || "No address"}</div>
-                  <div style={{ fontSize:11, color:"#999", marginTop:3 }}>
-                    👤 {cl?.fullName || "—"} &nbsp;·&nbsp; 🏢 {org?.name || "—"}
+              {/* Card header */}
+              <div style={{ padding:"14px 16px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    {/* Title row */}
+                    <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:4 }}>
+                      <span style={{ fontWeight:"bold", fontSize:14, fontFamily:"Georgia, serif", color: isPri ? C.danger : C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {d.address||"No address"}
+                      </span>
+                      {isPri && (
+                        <span style={{ fontSize:9, letterSpacing:1, padding:"3px 8px", borderRadius:10, background:"#FEE2E2", color:C.danger, border:`1px solid ${C.danger}33`, fontWeight:"bold", whiteSpace:"nowrap" }}>
+                          ● PRIORITY
+                        </span>
+                      )}
+                    </div>
+                    {/* Meta */}
+                    <div style={{ fontSize:11, color:"#999" }}>
+                      👤 {cl?.fullName||"—"} &nbsp;·&nbsp; 🏢 {org?.name||"—"}
+                    </div>
+                    <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap", alignItems:"center" }}>
+                      <StageBadge stageId={d.dealStage} small />
+                      <span style={{ fontSize:10, padding:"3px 8px", borderRadius:10, background:`${payP.color}18`, color:payP.color, border:`1px solid ${payP.color}33` }}>{payP.label}</span>
+                      {d.closingDate && <span style={{ fontSize:10, color:"#aaa" }}>📅 {d.closingDate}</span>}
+                    </div>
                   </div>
-                  {d.closingDate && <div style={{ fontSize:11, color:"#aaa", marginTop:3 }}>📅 Closing: {d.closingDate}</div>}
-                  {d.owner && <div style={{ fontSize:11, color:"#aaa", marginTop:2 }}>Owner: {d.owner}</div>}
+                  <div style={{ textAlign:"right", flexShrink:0 }}>
+                    <div style={{ fontSize:18, fontWeight:"bold", fontFamily:"Georgia, serif", color: isPri ? C.danger : C.goldDark }}>{fmt$(d.value)}</div>
+                    {d.paymentAmount>0 && <div style={{ fontSize:11, color:payP.color, marginTop:2 }}>Fee: {fmt$(d.paymentAmount)}</div>}
+                  </div>
                 </div>
-                <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8, flexShrink:0 }}>
-                  <div style={{ fontSize:17, fontWeight:"bold", color:C.goldDark, fontFamily:"Georgia, serif" }}>{fmt$(d.value)}</div>
-                  <span style={{
-                    fontSize:9, padding:"4px 10px", borderRadius:10, letterSpacing:1,
-                    background: d.label==="Primary" ? `${C.goldDark}18` : "#F3F4F6",
-                    color: d.label==="Primary" ? C.goldDark : "#6B7280",
-                    border:`1px solid ${d.label==="Primary" ? C.goldDark+"44" : "#E5E7EB"}`,
-                  }}>{d.label?.toUpperCase()}</span>
-                  <div style={{ display:"flex", gap:8 }}>
-                    <button onClick={()=>onEdit(d)} className="btn-transition" style={{ padding:"8px 14px", background:C.charcoal, color:C.gold, border:"none", borderRadius:8, cursor:"pointer", fontSize:11 }}>EDIT</button>
-                    <button onClick={()=>setConfirmDel(d)} style={{ background:"none", border:"none", color:C.danger, cursor:"pointer", fontSize:11, textDecoration:"underline" }}>Delete</button>
+
+                {/* Pipeline mini-strip */}
+                <div style={{ marginTop:12, overflowX:"auto" }}>
+                  <DealPipeline currentStage={d.dealStage} />
+                </div>
+
+                {/* Files row */}
+                {(d.idFileName||d.contractFileName) && (
+                  <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
+                    {d.idFileName && <span style={{ fontSize:10, color:C.goldDark, background:`${C.goldDark}11`, padding:"3px 8px", borderRadius:8 }}>📄 {d.idFileName}</span>}
+                    {d.contractFileName && <span style={{ fontSize:10, color:C.goldDark, background:`${C.goldDark}11`, padding:"3px 8px", borderRadius:8 }}>📋 {d.contractFileName}</span>}
                   </div>
+                )}
+
+                {d.notes && <div style={{ marginTop:10, fontSize:12, color:"#888", lineHeight:1.5, background:C.bg, borderRadius:8, padding:"8px 10px" }}>{d.notes}</div>}
+
+                {/* Actions */}
+                <div style={{ display:"flex", gap:8, marginTop:12, paddingTop:12, borderTop:`1px solid ${C.ivory}` }}>
+                  <button onClick={()=>onEdit(d)} className="btn-transition" style={{ flex:1, padding:"10px", background:C.charcoal, color:C.gold, border:"none", borderRadius:10, cursor:"pointer", fontSize:11, letterSpacing:1 }}>EDIT</button>
+                  <button onClick={()=>setConfirmDel(d)} style={{ padding:"10px 16px", background:C.dangerLight, color:C.danger, border:`1px solid ${C.danger}22`, borderRadius:10, cursor:"pointer", fontSize:11 }}>Delete</button>
                 </div>
               </div>
             </div>
           );
         })
       }
+
       {confirmDel && (
         <ConfirmModal title="Delete Deal" message={`Remove deal at "${confirmDel.address}"? This cannot be undone.`}
           confirmLabel="Delete" danger
-          onConfirm={()=>{ onDelete(confirmDel.id); setConfirmDel(null); }}
+          onConfirm={()=>{onDelete(confirmDel.id);setConfirmDel(null);}}
           onCancel={()=>setConfirmDel(null)} />
       )}
     </div>
@@ -2238,20 +2162,20 @@ export default function App() {
         return <CategorySelect onSelect={handleCategorySelect} />;
       case "clients":
         return <ClientsView clients={clients} onAdd={() => { setEditingClient(null); setClientFormOpen(true); }}
-          onEdit={handleClientEdit} onDelete={handleClientDelete} onStageChange={handleStageChange} />;
+          onEdit={handleClientEdit} onDelete={handleClientDelete} />;
       case "orgs":
         return <OrgsView orgs={orgs} onAdd={() => { setEditingOrg(null); setOrgFormOpen(true); }}
           onEdit={handleOrgEdit} onDelete={handleOrgDelete} />;
       case "deals":
         return <DealsView deals={deals} clients={clients} orgs={orgs}
           onAdd={() => { setEditingDeal(null); setDealFormOpen(true); }}
-          onEdit={handleDealEdit} onDelete={handleDealDelete} />;
+          onEdit={handleDealEdit} onDelete={handleDealDelete} onStageChange={(id,stage)=>setDeals(ds=>ds.map(d=>d.id===id?{...d,dealStage:stage}:d))} />;
       case "settings":
         if (user.role !== "manager") { setView("clients"); return null; }
         return <SettingsView workers={workers} onAddWorker={handleAddWorker} onDeleteWorker={handleDeleteWorker} />;
       default:
         if (user.role !== "manager") return <ClientsView clients={clients} onAdd={() => { setEditingClient(null); setClientFormOpen(true); }}
-          onEdit={handleClientEdit} onDelete={handleClientDelete} onStageChange={handleStageChange} />;
+          onEdit={handleClientEdit} onDelete={handleClientDelete} />;
         return <Dashboard lenders={lenders} clients={clients} deals={deals} user={user} onCategorySelect={handleCategorySelect} onNavigate={navigate} />;
     }
   };
@@ -2266,11 +2190,11 @@ export default function App() {
         <Sidebar activeNav={activeNav} onNavigate={navigate}
           isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} userRole={user.role} />
 
-        <main style={{ minHeight: "calc(100vh - 58px)", paddingBottom: 70, width: "100%", overflowX: "hidden" }}>
+        <main style={{ minHeight: "calc(100vh - 58px)", paddingBottom: 24, width: "100%", overflowX: "hidden" }}>
           {renderMain()}
         </main>
 
-        <BottomNav activeNav={activeNav} onNavigate={navigate} userRole={user.role} />
+
 
         {clientFormOpen && (
           <Modal onClose={() => { setClientFormOpen(false); setEditingClient(null); }} maxWidth={640}>
