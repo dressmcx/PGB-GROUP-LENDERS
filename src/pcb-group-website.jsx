@@ -77,19 +77,19 @@ const INITIAL_LENDERS = [
 ];
 
 const INITIAL_CLIENTS = [
-  { id: 1, fullName: "Michael Torres", phone: "(212) 555-0910", email: "m.torres@email.com", address: "45 Park Ave, New York, NY 10016", dealStage: "commitment", paymentStatus: "paid", paymentAmount: 15000, notes: "Fast mover. Docs all verified. Preferred client.", idFileName: "torres_passport.pdf", contractFileName: "torres_contract.pdf", createdAt: "2025-01-15" },
-  { id: 2, fullName: "Rachel Kim", phone: "(310) 555-0234", email: "r.kim@email.com", address: "820 Wilshire Blvd, Los Angeles, CA 90017", dealStage: "intake", paymentStatus: "not_paid", paymentAmount: 8500, notes: "Waiting on ID scan.", idFileName: "", contractFileName: "", createdAt: "2025-02-03" },
-  { id: 3, fullName: "David Schwartz", phone: "(305) 555-0567", email: "d.schwartz@email.com", address: "200 Biscayne Blvd, Miami, FL 33131", dealStage: "underwriting", paymentStatus: "partial", paymentAmount: 22000, notes: "Complex deal. Multi-unit residential.", idFileName: "schwartz_id.jpg", contractFileName: "schwartz_agreement.pdf", createdAt: "2025-02-18" },
-  { id: 4, fullName: "Linda Park", phone: "(713) 555-0811", email: "l.park@email.com", address: "900 Travis St, Houston, TX 77002", dealStage: "closed", paymentStatus: "paid", paymentAmount: 31000, notes: "Deal closed. Excellent experience.", idFileName: "park_passport.pdf", contractFileName: "park_contract_final.pdf", createdAt: "2025-01-08" },
+  { id: 1, fullName: "Michael Torres", phones:[{number:"(212) 555-0910",tag:"Work"}], emails:["m.torres@email.com"], address: "45 Park Ave, New York, NY 10016", notes: "Fast mover. Preferred contact.", createdAt: "2025-01-15" },
+  { id: 2, fullName: "Rachel Kim",     phones:[{number:"(310) 555-0234",tag:"Mobile"}], emails:["r.kim@email.com"], address: "820 Wilshire Blvd, Los Angeles, CA 90017", notes: "", createdAt: "2025-02-03" },
+  { id: 3, fullName: "David Schwartz", phones:[{number:"(305) 555-0567",tag:"Work"},{number:"(305) 555-0568",tag:"Home"}], emails:["d.schwartz@email.com","david@schwartzgroup.com"], address: "200 Biscayne Blvd, Miami, FL 33131", notes: "Multi-unit residential client.", createdAt: "2025-02-18" },
+  { id: 4, fullName: "Linda Park",     phones:[{number:"(713) 555-0811",tag:"Work"}], emails:["l.park@email.com"], address: "900 Travis St, Houston, TX 77002", notes: "", createdAt: "2025-01-08" },
 ];
 
 const INITIAL_ORGS = [
-  { id: 1, name: "Skyline Capital Group", owner: "James Whitfield", sponsor: "First National Trust", sponsor2: "", officeContact: "(212) 555-0100", mgmtContact: "Realty Mgmt LLC", assistance: "Lisa Brown", loanOfficer: "David Chen", address: "350 5th Ave, New York, NY 10118", entityType: "LLC", visibleTo: "All", label: "Primary", phones: [{ number: "(212) 555-0100", tag: "Work" }], emails: ["j.whitfield@skyline.com"] },
+  { id: 1, name: "Skyline Capital Group", sponsor: "First National Trust", sponsor2: "", officeContact: "Michael Torres", mgmtContact: "Realty Mgmt LLC", assistance: "Lisa Brown", loanOfficer: "David Chen", address: "350 5th Ave, New York, NY 10118", entityType: "LLC", phones: [{ number: "(212) 555-0100", tag: "Work" }], emails: ["j.whitfield@skyline.com"] },
 ];
 
 const INITIAL_DEALS = [
-  { id: 1, contactId: 1, orgId: 1, address: "45 Park Ave, New York, NY 10016", value: 2500000, closingDate: "2025-06-30", owner: "Y. Fried", dealType: "Priority", dealStage: "commitment", paymentStatus: "paid", paymentAmount: 15000, idFileName: "torres_passport.pdf", contractFileName: "torres_contract.pdf", notes: "Fast mover. Multi-unit deal.", createdAt: "2025-01-15" },
-  { id: 2, contactId: 2, orgId: 1, address: "820 Wilshire Blvd, Los Angeles, CA 90017", value: 850000, closingDate: "2025-09-15", owner: "Y. Fried", dealType: "Regular", dealStage: "intake", paymentStatus: "not_paid", paymentAmount: 8500, idFileName: "", contractFileName: "", notes: "Waiting on ID scan.", createdAt: "2025-02-03" },
+  { id: 1, contactId: 1, orgId: 1, address: "45 Park Ave, New York, NY 10016", value: 2500000, closingDate: "2025-06-30", createdBy: "Y. Fried", dealType: "Priority", dealStage: "commitment", paymentAmount: 15000, visibleTo: "all", notes: "Fast mover. Multi-unit deal.", createdAt: "2025-01-15" },
+  { id: 2, contactId: 2, orgId: 1, address: "820 Wilshire Blvd, Los Angeles, CA 90017", value: 850000, closingDate: "2025-09-15", createdBy: "Y. Fried", dealType: "Regular", dealStage: "intake", paymentAmount: 8500, visibleTo: "all", notes: "Waiting on ID scan.", createdAt: "2025-02-03" },
 ];
 
 const CATEGORIES   = ["Permanent", "Bridge to Perm", "Construction", "Owner Occupied", "Hard Money"];
@@ -416,10 +416,12 @@ function Header({ user, onLogout, onHome, onMenuToggle, sidebarOpen }) {
 // ─────────────────────────────────────────────────────────────
 function Sidebar({ activeNav, onNavigate, isOpen, onClose, userRole }) {
   const mainLinks = [
-    { id: "clients", label: "Contacts",      icon: "👤" },
-    { id: "orgs",    label: "Orgs",          icon: "🏢" },
-    { id: "deals",   label: "Deals",         icon: "🤝" },
-    ...(userRole === "manager" ? [{ id: "dashboard", label: "Dashboard", icon: "◈" }, { id: "settings", label: "Settings", icon: "⚙" }] : []),
+    { id: "dashboard",  label: "Dashboard", icon: "◈" },
+    { id: "categories", label: "Lenders",   icon: "⊞" },
+    { id: "clients",    label: "Contacts",  icon: "👤" },
+    { id: "orgs",       label: "Orgs",      icon: "🏢" },
+    { id: "deals",      label: "Deals",     icon: "🤝" },
+    ...(userRole === "manager" ? [{ id: "settings", label: "Settings", icon: "⚙" }] : []),
   ];
 
   return (
@@ -456,7 +458,7 @@ function Sidebar({ activeNav, onNavigate, isOpen, onClose, userRole }) {
         <div style={{ height: 1, background: `${C.goldDark}22`, margin: "12px 24px" }} />
         <div style={{ padding: "8px 24px", color: "#444", fontSize: 9, letterSpacing: 3 }}>SYSTEM</div>
         <div style={{ padding: "10px 24px", color: "#555", fontSize: 12, letterSpacing: 0.5 }}>
-          v3.0 · PCB Portal
+          v2.0 PCB Portal
         </div>
       </nav>
     </>
@@ -648,11 +650,20 @@ function DealPipeline({ currentStage }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// CONTACT FORM (formerly Client Form — no pipeline/files here)
+// CONTACT FORM — multi-phone, multi-email
 // ─────────────────────────────────────────────────────────────
 function ClientForm({ initial, onSave, onCancel }) {
-  const blank = { fullName: "", phone: "", email: "", address: "", notes: "" };
-  const [form, setForm] = useState(initial ? { ...initial } : blank);
+  const blank = {
+    fullName: "", address: "", notes: "",
+    phones: [{ number: "", tag: "Work" }],
+    emails: [""],
+  };
+  const normalize = c => ({
+    ...c,
+    phones: c.phones?.length ? c.phones : (c.phone ? [{ number: c.phone, tag: "Work" }] : [{ number: "", tag: "Work" }]),
+    emails: c.emails?.length ? c.emails : (c.email ? [c.email] : [""]),
+  });
+  const [form, setForm] = useState(initial ? normalize(initial) : blank);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   return (
@@ -666,14 +677,14 @@ function ClientForm({ initial, onSave, onCancel }) {
       </div>
       {initial?._isNew && (
         <div style={{ background:`${C.goldDark}18`, border:`1px solid ${C.goldDark}44`, borderRadius:10, padding:"10px 14px", marginBottom:18, fontSize:12, color:C.goldDark }}>
-          ← Adding new contact from Organization form. Save to return.
+          ← Adding new contact from Deal or Org form. Save to return.
         </div>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <FormField label="Full Name" value={form.fullName} onChange={v => set("fullName", v)} required span2 />
-        <FormField label="Phone" type="tel" value={form.phone} onChange={v => set("phone", v)} />
-        <FormField label="Email" type="email" value={form.email} onChange={v => set("email", v)} />
         <AddressField label="Address" value={form.address} onChange={v => set("address", v)} span2 />
+        <MultiPhoneField phones={form.phones} onChange={v => set("phones", v)} />
+        <MultiEmailField emails={form.emails} onChange={v => set("emails", v)} />
         <FormField label="Notes" value={form.notes} onChange={v => set("notes", v)} textarea span2 />
       </div>
       <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
@@ -713,7 +724,7 @@ function ClientCard({ client, onEdit, onDelete }) {
             }}>{client.fullName.charAt(0).toUpperCase()}</div>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: "bold", color: C.charcoal, fontSize: 14, fontFamily: "Georgia, serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{client.fullName}</div>
-              <div style={{ color: "#999", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{client.email || client.phone || "No contact info"}</div>
+              <div style={{ color: "#999", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(client.emails||[])[0] || (client.phones||[])[0]?.number || client.email || client.phone || "No contact info"}</div>
             </div>
           </div>
           <span style={{ color: C.gold, fontSize: 14, transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
@@ -722,8 +733,27 @@ function ClientCard({ client, onEdit, onDelete }) {
         {expanded && (
           <div className="anim-fade-up" style={{ padding: "4px 16px 18px", borderTop: `1px solid ${C.ivory}` }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14, marginBottom: 14 }}>
-              {client.phone && <div><div style={{ ...fieldLabel, marginBottom: 3 }}>PHONE</div><a href={`tel:${client.phone}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{client.phone}</a></div>}
-              {client.email && <div><div style={{ ...fieldLabel, marginBottom: 3 }}>EMAIL</div><a href={`mailto:${client.email}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}`, overflow: "hidden", textOverflow: "ellipsis", display: "block", whiteSpace: "nowrap" }}>{client.email}</a></div>}
+              {(client.phones||[]).filter(p=>p.number).length>0 && (
+                <div>
+                  <div style={{ ...fieldLabel, marginBottom: 3 }}>PHONE</div>
+                  {(client.phones||[]).filter(p=>p.number).map((p,i)=>(
+                    <div key={i} style={{ marginBottom:3 }}>
+                      <a href={`tel:${p.number}`} style={{ color:C.charcoal, fontSize:13, textDecoration:"none", borderBottom:`1px solid ${C.gold}` }}>{p.number}</a>
+                      <span style={{ fontSize:9, color:"#aaa", marginLeft:5 }}>({p.tag})</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(client.emails||[]).filter(Boolean).length>0 && (
+                <div>
+                  <div style={{ ...fieldLabel, marginBottom: 3 }}>EMAIL</div>
+                  {(client.emails||[]).filter(Boolean).map((e,i)=>(
+                    <div key={i} style={{ marginBottom:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      <a href={`mailto:${e}`} style={{ color:C.charcoal, fontSize:13, textDecoration:"none", borderBottom:`1px solid ${C.gold}` }}>{e}</a>
+                    </div>
+                  ))}
+                </div>
+              )}
               {client.address && <div style={{ gridColumn: "1/-1" }}><div style={{ ...fieldLabel, marginBottom: 3 }}>ADDRESS</div><a href={`https://maps.google.com/?q=${encodeURIComponent(client.address)}`} target="_blank" rel="noopener noreferrer" style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>📍 {client.address}</a></div>}
               {client.notes && <div style={{ gridColumn: "1/-1" }}><div style={{ ...fieldLabel, marginBottom: 3 }}>NOTES</div><div style={{ background: C.bg, borderRadius: 8, padding: "10px 12px", fontSize: 13, color: C.charcoal, lineHeight: 1.6 }}>{client.notes}</div></div>}
             </div>
@@ -794,21 +824,20 @@ function ClientsView({ clients, onAdd, onEdit, onDelete }) {
 // DASHBOARD
 // ─────────────────────────────────────────────────────────────
 function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user }) {
-  const totalPipeline  = clients.reduce((s,c) => s+(c.paymentAmount||0), 0);
-  const paidTotal      = clients.filter(c=>c.paymentStatus==="paid").reduce((s,c)=>s+(c.paymentAmount||0),0);
   const totalDealValue = (deals||[]).reduce((s,d)=>s+(d.value||0),0);
-  const activeClients  = clients.filter(c=>!["closed","cancelled"].includes(c.dealStage)).length;
+  const totalFees      = (deals||[]).reduce((s,d)=>s+(d.paymentAmount||0),0);
+  const priorityDeals  = (deals||[]).filter(d=>d.dealType==="Priority").length;
   const recentClients  = [...clients].sort((a,b)=>b.id-a.id).slice(0,5);
 
   // Pipeline columns — group clients by stage
   const pipelineStages = DEAL_STAGES.filter(s=>s.id!=="cancelled");
-  const clientsByStage = id => clients.filter(c=>c.dealStage===id);
+  const dealsByStage   = id => (deals||[]).filter(d=>d.dealStage===id);
 
   const kpis = [
-    { label:"Total Clients",  value:clients.length,       color:C.goldDark, icon:"👤", sub:`${activeClients} active` },
-    { label:"Total Deals",    value:(deals||[]).length,    color:C.info,     icon:"🤝", sub:`${fmt$(totalDealValue)} value` },
-    { label:"Fee Pipeline",   value:fmt$(totalPipeline),  color:C.warning,  icon:"💰", sub:"total outstanding" },
-    { label:"Fees Collected", value:fmt$(paidTotal),       color:C.success,  icon:"✓",  sub:`${clients.length?Math.round(paidTotal/totalPipeline*100)||0:0}% of pipeline` },
+    { label:"Total Contacts", value:clients.length,      color:C.goldDark, icon:"👤", sub:"in directory" },
+    { label:"Total Deals",    value:(deals||[]).length,  color:C.info,     icon:"🤝", sub:`${fmt$(totalDealValue)} value` },
+    { label:"Fee Pipeline",   value:fmt$(totalFees),     color:C.warning,  icon:"💰", sub:"total fees" },
+    { label:"Priority Deals", value:priorityDeals,       color:C.danger,   icon:"🔴", sub:"require attention" },
   ];
 
   return (
@@ -820,7 +849,7 @@ function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user
         <h1 style={{ color:C.charcoal, margin:0, fontSize:24, fontFamily:"Georgia, serif", fontWeight:"normal" }}>
           Good day, {user.name}
         </h1>
-        <div style={{ color:"#aaa", fontSize:12, marginTop:4 }}>{activeClients} active client{activeClients!==1?"s":""} in pipeline</div>
+        <div style={{ color:"#aaa", fontSize:12, marginTop:4 }}>{(deals||[]).filter(d=>d.dealStage!=="cancelled").length} active deal{(deals||[]).filter(d=>d.dealStage!=="cancelled").length!==1?"s":""} in pipeline</div>
       </div>
 
       {/* ── KPI Banner — 2 cols mobile / 4 cols desktop ── */}
@@ -846,65 +875,51 @@ function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user
       {/* ── Workspace: single col on mobile, 2-col on wider screens ── */}
       <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr)", gap:16, alignItems:"start" }}>
 
-        {/* LEFT — Pipeline Kanban columns */}
+        {/* PIPELINE — Deals by stage */}
         <div>
-          <div style={{ fontSize:9, color:"#aaa", letterSpacing:3, marginBottom:12 }}>ACTIVE PIPELINE · STAGES</div>
+          <div style={{ fontSize:9, color:"#aaa", letterSpacing:3, marginBottom:12 }}>ACTIVE PIPELINE · DEAL STAGES</div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {pipelineStages.filter(s=>clientsByStage(s.id).length>0).map(s => {
-              const cols = clientsByStage(s.id);
+            {pipelineStages.filter(s=>dealsByStage(s.id).length>0).map(s => {
+              const stagDeals = dealsByStage(s.id);
               return (
-                <div key={s.id} style={{
-                  background:"white", borderRadius:12, border:`1px solid ${C.ivoryDark}`,
-                  borderLeft:`4px solid ${s.color}`, overflow:"hidden",
-                }}>
-                  {/* Stage header */}
-                  <div style={{
-                    padding:"10px 14px", display:"flex", alignItems:"center",
-                    justifyContent:"space-between", background:`${s.bg}`,
-                    borderBottom:`1px solid ${s.color}22`,
-                  }}>
+                <div key={s.id} style={{ background:"white", borderRadius:12, border:`1px solid ${C.ivoryDark}`, borderLeft:`4px solid ${s.color}`, overflow:"hidden" }}>
+                  <div style={{ padding:"10px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", background:s.bg, borderBottom:`1px solid ${s.color}22` }}>
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                       <span style={{ fontSize:14 }}>{s.icon}</span>
-                      <span style={{ fontSize:11, fontWeight:"bold", color:s.color, letterSpacing:0.5 }}>{s.label}</span>
+                      <span style={{ fontSize:11, fontWeight:"bold", color:s.color }}>{s.label}</span>
                     </div>
-                    <span style={{
-                      fontSize:10, fontWeight:"bold", color:s.color,
-                      background:"white", padding:"2px 8px", borderRadius:10,
-                      border:`1px solid ${s.color}33`,
-                    }}>{cols.length}</span>
+                    <span style={{ fontSize:10, fontWeight:"bold", color:s.color, background:"white", padding:"2px 8px", borderRadius:10, border:`1px solid ${s.color}33` }}>{stagDeals.length}</span>
                   </div>
-                  {/* Client rows */}
-                  {cols.map(c => (
-                    <div key={c.id} style={{
-                      padding:"10px 14px", display:"flex", alignItems:"center",
-                      justifyContent:"space-between", gap:10,
-                      borderBottom:`1px solid ${C.ivory}`,
-                    }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0 }}>
-                        <div style={{
-                          width:30, height:30, borderRadius:"50%", flexShrink:0,
-                          background:`linear-gradient(135deg,${s.color}22,${s.color}44)`,
-                          display:"flex", alignItems:"center", justifyContent:"center",
-                          fontSize:12, color:s.color, fontWeight:"bold",
-                        }}>{c.fullName.charAt(0)}</div>
-                        <div style={{ minWidth:0 }}>
-                          <div style={{ fontSize:12, fontWeight:"bold", color:C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.fullName}</div>
-                          <div style={{ fontSize:10, color:"#999" }}>{c.email || c.phone || "—"}</div>
+                  {stagDeals.map(d => {
+                    const cl  = clients.find(c=>c.id===Number(d.contactId));
+                    const isPri = d.dealType==="Priority";
+                    return (
+                      <div key={d.id} style={{ padding:"10px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, borderBottom:`1px solid ${C.ivory}`, background: isPri ? "#FFF5F5" : "white" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0 }}>
+                          <div style={{ width:30, height:30, borderRadius:"50%", flexShrink:0, background: isPri ? `${C.danger}22` : `${s.color}22`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color: isPri ? C.danger : s.color, fontWeight:"bold" }}>
+                            {isPri ? "!" : (cl?.fullName||"?").charAt(0)}
+                          </div>
+                          <div style={{ minWidth:0 }}>
+                            <div style={{ fontSize:12, fontWeight:"bold", color: isPri ? C.danger : C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              {d.address||"No address"}
+                              {isPri && <span style={{ marginLeft:6, fontSize:9, color:C.danger }}>● PRIORITY</span>}
+                            </div>
+                            <div style={{ fontSize:10, color:"#999" }}>{cl?.fullName||"—"}</div>
+                          </div>
+                        </div>
+                        <div style={{ textAlign:"right", flexShrink:0 }}>
+                          <div style={{ fontSize:12, fontWeight:"bold", fontFamily:"Georgia, serif", color: isPri ? C.danger : C.goldDark }}>{fmt$(d.value)}</div>
                         </div>
                       </div>
-                      <div style={{ textAlign:"right", flexShrink:0 }}>
-                        <div style={{ fontSize:12, fontWeight:"bold", color:C.charcoal, fontFamily:"Georgia, serif" }}>{fmt$(c.paymentAmount)}</div>
-                        <PayBadge statusId={c.paymentStatus} small />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             })}
-            {clients.filter(c=>!["cancelled"].includes(c.dealStage)).length === 0 && (
+            {(deals||[]).filter(d=>d.dealStage!=="cancelled").length===0 && (
               <div style={{ textAlign:"center", padding:"40px 0", color:"#bbb", fontSize:13 }}>
-                No active clients in pipeline.
-                <span style={{ color:C.goldDark, cursor:"pointer", marginLeft:6 }} onClick={()=>onNavigate("clients")}>Add one →</span>
+                No active deals in pipeline.
+                <span style={{ color:C.goldDark, cursor:"pointer", marginLeft:6 }} onClick={()=>onNavigate("deals")}>Add one →</span>
               </div>
             )}
           </div>
@@ -919,24 +934,17 @@ function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user
               <div style={{ fontSize:9, color:"#aaa", letterSpacing:3 }}>RECENT CLIENTS</div>
               <button onClick={()=>onNavigate("clients")} style={{ background:"none", border:"none", cursor:"pointer", color:C.goldDark, fontSize:11 }}>All →</button>
             </div>
-            {recentClients.map(c => {
-              const s = stageInfo(c.dealStage);
-              return (
-                <div key={c.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:`1px solid ${C.ivory}` }}>
-                  <div style={{
-                    width:30, height:30, borderRadius:"50%", flexShrink:0,
-                    background:`linear-gradient(135deg,${s.color}22,${s.color}44)`,
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    fontSize:12, color:s.color, fontWeight:"bold",
-                  }}>{c.fullName.charAt(0)}</div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:12, fontWeight:"bold", color:C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.fullName}</div>
-                    <div style={{ fontSize:9, color:s.color, marginTop:1 }}>{s.icon} {s.label}</div>
-                  </div>
-                  <div style={{ fontSize:11, fontWeight:"bold", color:C.charcoal, fontFamily:"Georgia, serif", flexShrink:0 }}>{fmt$(c.paymentAmount)}</div>
+            {recentClients.map(c => (
+              <div key={c.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:`1px solid ${C.ivory}` }}>
+                <div style={{ width:30, height:30, borderRadius:"50%", flexShrink:0, background:`${C.goldDark}22`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color:C.goldDark, fontWeight:"bold" }}>
+                  {c.fullName.charAt(0)}
                 </div>
-              );
-            })}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:12, fontWeight:"bold", color:C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.fullName}</div>
+                  <div style={{ fontSize:10, color:"#aaa", marginTop:1 }}>{(c.emails||[])[0] || (c.phones||[])[0]?.number || "—"}</div>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Recent Deals */}
@@ -962,9 +970,9 @@ function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user
           <div style={{ background:"white", borderRadius:14, padding:"16px", border:`1px solid ${C.ivoryDark}` }}>
             <div style={{ fontSize:9, color:"#aaa", letterSpacing:3, marginBottom:10 }}>STAGE BREAKDOWN</div>
             {DEAL_STAGES.filter(s=>s.id!=="cancelled").map(s => {
-              const cnt = clientsByStage(s.id).length;
+              const cnt = dealsByStage(s.id).length;
               if (cnt===0) return null;
-              const pct = Math.round((cnt/clients.length)*100)||0;
+              const pct = Math.round((cnt/((deals||[]).length||1))*100)||0;
               return (
                 <div key={s.id} style={{ marginBottom:8 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
@@ -1522,9 +1530,9 @@ function ContactAutocomplete({ label, value, onChange, clients, onAddNew, span2 
 
 function OrgForm({ initial, clients, onSave, onCancel, onAddNewContact }) {
   const blank = {
-    name:"", owner:"", sponsor:"", sponsor2:"", officeContact:"",
+    name:"", sponsor:"", sponsor2:"", officeContact:"",
     mgmtContact:"", assistance:"", loanOfficer:"", address:"",
-    entityType:"LLC", visibleTo:"All",
+    entityType:"LLC",
     phones:[{ number:"", tag:"Work" }], emails:[""],
   };
   const [form, setForm] = useState(initial ? {...initial} : blank);
@@ -1536,7 +1544,6 @@ function OrgForm({ initial, clients, onSave, onCancel, onAddNewContact }) {
     onAddNewContact(prefillName, (newClient) => {
       // Callback fires when new client is saved — auto-fill the right field
       const fieldMap = {
-        "Owner":                        "owner",
         "Sponsor Information":          "sponsor",
         "Sponsor 2 Information":        "sponsor2",
         "Office Contact":               "officeContact",
@@ -1560,8 +1567,8 @@ function OrgForm({ initial, clients, onSave, onCancel, onAddNewContact }) {
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
         <FormField label="Organization Name" value={form.name} onChange={v=>set("name",v)} required span2 />
-        <ContactAutocomplete label="Owner" value={form.owner} onChange={v=>set("owner",v)} clients={clients} onAddNew={handleAddNew} />
         <SelectField label="Entity Type" value={form.entityType} onChange={v=>set("entityType",v)} options={ENTITY_TYPES} />
+        <div /> {/* grid spacer */}
         <ContactAutocomplete label="Sponsor Information" value={form.sponsor} onChange={v=>set("sponsor",v)} clients={clients} onAddNew={handleAddNew} />
         <ContactAutocomplete label="Sponsor 2 Information" value={form.sponsor2} onChange={v=>set("sponsor2",v)} clients={clients} onAddNew={handleAddNew} />
         <ContactAutocomplete label="Office Contact" value={form.officeContact} onChange={v=>set("officeContact",v)} clients={clients} onAddNew={handleAddNew} />
@@ -1569,8 +1576,6 @@ function OrgForm({ initial, clients, onSave, onCancel, onAddNewContact }) {
         <ContactAutocomplete label="Assistance" value={form.assistance} onChange={v=>set("assistance",v)} clients={clients} onAddNew={handleAddNew} />
         <ContactAutocomplete label="Loan Officer" value={form.loanOfficer} onChange={v=>set("loanOfficer",v)} clients={clients} onAddNew={handleAddNew} />
         <AddressField label="Address" value={form.address} onChange={v=>set("address",v)} span2 />
-        <SelectField label="Visible To" value={form.visibleTo} onChange={v=>set("visibleTo",v)} options={VISIBLE_TO} />
-        <div /> {/* grid spacer */}
         <MultiPhoneField phones={form.phones} onChange={v=>set("phones",v)} />
         <MultiEmailField emails={form.emails} onChange={v=>set("emails",v)} />
       </div>
@@ -1689,25 +1694,85 @@ function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// DEAL FORM — full pipeline hub with stages, payment, files
+// DEAL FORM — inline quick-add for contact/org, auto createdBy, visibleTo
 // ─────────────────────────────────────────────────────────────
 const SEL_STYLE = {
-  ...({} /* placeholder */),
   cursor:"pointer", appearance:"none",
   backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
   backgroundRepeat:"no-repeat", backgroundPosition:"right 14px center",
 };
 
-function DealForm({ initial, clients, orgs, onSave, onCancel }) {
+// Inline search+create for Contact/Org in DealForm
+function DealLinkField({ label, items, value, onChange, onAddNew, idField, nameField }) {
+  const [q, setQ]       = useState(() => { const found = items.find(i=>i[idField]===Number(value)||i[idField]===value); return found ? found[nameField] : ""; });
+  const [open, setOpen] = useState(false);
+  const ref             = useRef(null);
+
+  useEffect(() => {
+    const found = items.find(i=>i[idField]===Number(value)||i[idField]===value);
+    setQ(found ? found[nameField] : "");
+  }, [value, items]);
+
+  useEffect(() => {
+    const h = e => { if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  const matches = q.trim()
+    ? items.filter(i=>(i[nameField]||"").toLowerCase().includes(q.toLowerCase()))
+    : items.slice(0,8);
+  const exactMatch = items.some(i=>(i[nameField]||"").toLowerCase()===q.toLowerCase());
+
+  const pick = item => { onChange(item[idField]); setQ(item[nameField]); setOpen(false); };
+
+  return (
+    <div ref={ref} style={{ position:"relative" }}>
+      <div style={fieldLabel}>{label.toUpperCase()}</div>
+      <div style={{ position:"relative" }}>
+        <input value={q} onChange={e=>{ setQ(e.target.value); setOpen(true); if(!e.target.value) onChange(""); }}
+          onFocus={()=>setOpen(true)} placeholder={`Search or create ${label.toLowerCase()}…`}
+          style={{...inputStyle, paddingRight:36}} />
+        <span style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", fontSize:12, color:"#bbb", pointerEvents:"none" }}>▾</span>
+      </div>
+      {open && (
+        <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:600, background:"white", border:`1.5px solid ${C.ivoryDark}`, borderRadius:10, boxShadow:"0 8px 32px rgba(0,0,0,0.12)", maxHeight:200, overflowY:"auto", marginTop:4 }}>
+          {matches.length>0 ? matches.map(item=>(
+            <div key={item[idField]} onMouseDown={()=>pick(item)}
+              style={{ padding:"10px 14px", cursor:"pointer", fontSize:13, color:C.charcoal, borderBottom:`1px solid ${C.ivory}`, display:"flex", alignItems:"center", gap:10 }}
+              onMouseEnter={e=>e.currentTarget.style.background=C.bg}
+              onMouseLeave={e=>e.currentTarget.style.background="white"}>
+              <div style={{ width:26, height:26, borderRadius:"50%", background:`${C.goldDark}22`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:C.goldDark, fontWeight:"bold", flexShrink:0 }}>{(item[nameField]||"?").charAt(0)}</div>
+              <span style={{ fontWeight:"bold" }}>{item[nameField]}</span>
+            </div>
+          )) : <div style={{ padding:"10px 14px", fontSize:12, color:"#aaa" }}>No {label.toLowerCase()} found</div>}
+          {!exactMatch && q.trim().length>0 && (
+            <div onMouseDown={()=>{ setOpen(false); onAddNew(q.trim()); }}
+              style={{ padding:"11px 14px", cursor:"pointer", fontSize:12, color:C.goldDark, borderTop:`1px solid ${C.ivory}`, display:"flex", alignItems:"center", gap:8, fontWeight:"bold" }}
+              onMouseEnter={e=>e.currentTarget.style.background=`${C.goldDark}0D`}
+              onMouseLeave={e=>e.currentTarget.style.background="white"}>
+              <span style={{ fontSize:16 }}>＋</span> Add "{q.trim()}" as new {label.toLowerCase()}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAddNewContact, onAddNewOrg }) {
   const blank = {
     contactId:"", orgId:"",
-    address:"", value:"", closingDate:"", owner:"",
+    address:"", value:"", closingDate:"",
+    createdBy: currentUser?.name || "",
     dealType:"Regular", dealStage:"intake",
-    paymentStatus:"not_paid", paymentAmount:"",
-    idFileName:"", contractFileName:"",
+    paymentAmount:"",
+    visibleTo:"all",
     notes:"",
   };
-  const [form, setForm]     = useState(initial ? {...initial, paymentAmount: initial.paymentAmount||"", value: initial.value||""} : blank);
+  const [form, setForm] = useState(initial
+    ? {...initial, paymentAmount:initial.paymentAmount||"", value:initial.value||"", createdBy:initial.createdBy||currentUser?.name||""}
+    : blank);
   const [pendingStage, setPendingStage] = useState(null);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
@@ -1718,11 +1783,11 @@ function DealForm({ initial, clients, orgs, onSave, onCancel }) {
       <div style={{ width:36, height:4, background:C.ivoryDark, borderRadius:2, margin:"0 auto 20px" }} />
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <h2 style={{ margin:0, fontSize:20, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
+          <h2 style={{ margin:0, fontSize:20, fontFamily:"Georgia, serif", fontWeight:"normal", color: isPriority ? C.danger : C.charcoal }}>
             {initial ? "Edit Deal" : "Add Deal"}
           </h2>
           {isPriority && (
-            <span style={{ fontSize:10, letterSpacing:1, padding:"4px 10px", borderRadius:10, background:"#FEE2E2", color:C.danger, border:`1px solid ${C.danger}33`, fontWeight:"bold" }}>
+            <span style={{ fontSize:10, letterSpacing:1, padding:"4px 10px", borderRadius:10, background:"#FEE2E2", color:C.danger, border:`1px solid ${C.danger}44`, fontWeight:"bold", animation:"pulse 2s infinite" }}>
               ● PRIORITY
             </span>
           )}
@@ -1730,28 +1795,23 @@ function DealForm({ initial, clients, orgs, onSave, onCancel }) {
         <button onClick={onCancel} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#aaa" }}>×</button>
       </div>
 
-      {/* Deal Progress Pipeline */}
-      <div style={{ background:C.bg, borderRadius:12, padding:"14px 12px", marginBottom:20 }}>
-        <div style={{ fontSize:9, letterSpacing:2, color:"#999", marginBottom:10 }}>DEAL PROGRESS</div>
+      {/* Pipeline progress bar */}
+      <div style={{ background: isPriority ? "#FEE2E2" : C.bg, borderRadius:12, padding:"14px 12px", marginBottom:20, border: isPriority ? `1px solid ${C.danger}33` : "none" }}>
+        <div style={{ fontSize:9, letterSpacing:2, color: isPriority ? C.danger : "#999", marginBottom:10 }}>DEAL PROGRESS</div>
         <DealPipeline currentStage={form.dealStage} />
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-        {/* Contact & Org linked dropdowns */}
-        <div>
-          <div style={fieldLabel}>CONTACT PERSON</div>
-          <select value={form.contactId} onChange={e=>set("contactId",Number(e.target.value))} style={{...inputStyle,...SEL_STYLE}}>
-            <option value="">— Select Contact —</option>
-            {clients.map(c=><option key={c.id} value={c.id}>{c.fullName}</option>)}
-          </select>
-        </div>
-        <div>
-          <div style={fieldLabel}>ORGANIZATION</div>
-          <select value={form.orgId} onChange={e=>set("orgId",Number(e.target.value))} style={{...inputStyle,...SEL_STYLE}}>
-            <option value="">— Select Organization —</option>
-            {orgs.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
-        </div>
+
+        {/* Contact Person — inline quick-add */}
+        <DealLinkField label="Contact Person" items={clients} value={form.contactId}
+          onChange={v=>set("contactId",v)} idField="id" nameField="fullName"
+          onAddNew={name=>onAddNewContact(name, newC=>set("contactId", newC.id))} />
+
+        {/* Organization — inline quick-add */}
+        <DealLinkField label="Organization" items={orgs} value={form.orgId}
+          onChange={v=>set("orgId",v)} idField="id" nameField="name"
+          onAddNew={name=>onAddNewOrg(name, newO=>set("orgId", newO.id))} />
 
         <AddressField label="Address" value={form.address} onChange={v=>set("address",v)} span2 />
 
@@ -1765,32 +1825,40 @@ function DealForm({ initial, clients, orgs, onSave, onCancel }) {
         </div>
 
         <FormField label="Expected Closing Date" type="date" value={form.closingDate} onChange={v=>set("closingDate",v)} />
-        <FormField label="Owner" value={form.owner} onChange={v=>set("owner",v)} />
 
-        {/* Deal Type — Priority = Red */}
+        {/* Created By — auto-populated, read-only display */}
+        <div>
+          <div style={fieldLabel}>CREATED BY</div>
+          <div style={{ ...inputStyle, background:"#f8f8f8", color:"#888", display:"flex", alignItems:"center", gap:8, cursor:"default" }}>
+            <span style={{ fontSize:14 }}>👤</span>
+            <span>{form.createdBy || "—"}</span>
+          </div>
+        </div>
+
+        {/* Deal Type — Priority bold red styling */}
         <div>
           <div style={fieldLabel}>DEAL TYPE</div>
           <select value={form.dealType} onChange={e=>set("dealType",e.target.value)}
             style={{...inputStyle,...SEL_STYLE,
               color: form.dealType==="Priority" ? C.danger : C.charcoal,
               fontWeight: form.dealType==="Priority" ? "bold" : "normal",
-              border: form.dealType==="Priority" ? `1.5px solid ${C.danger}88` : `1.5px solid ${C.ivoryDark}`,
+              border: form.dealType==="Priority" ? `2px solid ${C.danger}` : `1.5px solid ${C.ivoryDark}`,
+              background: form.dealType==="Priority" ? "#FEF2F2" : C.bg,
             }}>
             <option value="Regular">Regular</option>
-            <option value="Priority">Priority</option>
+            <option value="Priority">🔴 Priority</option>
           </select>
         </div>
 
         {/* Deal Stage */}
         <div>
           <div style={fieldLabel}>DEAL STAGE</div>
-          <select value={form.dealStage} onChange={e=>{ setPendingStage(e.target.value); }} style={{...inputStyle,...SEL_STYLE}}>
+          <select value={form.dealStage} onChange={e=>setPendingStage(e.target.value)} style={{...inputStyle,...SEL_STYLE}}>
             {DEAL_STAGES.map(s=><option key={s.id} value={s.id}>{s.icon} {s.label}</option>)}
           </select>
         </div>
 
-        {/* Payment */}
-        <SelectField label="Payment Status" value={form.paymentStatus} onChange={v=>set("paymentStatus",v)} options={PAYMENT_STATUSES} />
+        {/* Payment Amount only (no status) */}
         <div>
           <div style={fieldLabel}>PAYMENT AMOUNT ($)</div>
           <div style={{ position:"relative" }}>
@@ -1799,22 +1867,25 @@ function DealForm({ initial, clients, orgs, onSave, onCancel }) {
           </div>
         </div>
 
-        {/* File uploads */}
-        <FileField label="ID / Passport" fileName={form.idFileName} onChange={v=>set("idFileName",v)} />
-        <FileField label="Contract / Document" fileName={form.contractFileName} onChange={v=>set("contractFileName",v)} />
+        {/* Visible To */}
+        <div>
+          <div style={fieldLabel}>VISIBLE TO</div>
+          <select value={form.visibleTo} onChange={e=>set("visibleTo",e.target.value)} style={{...inputStyle,...SEL_STYLE}}>
+            <option value="all">Visible to All</option>
+            <option value="managers">Managers Only</option>
+            <option value="workers">Regular Workers</option>
+          </select>
+        </div>
 
         <FormField label="Notes / Comments" value={form.notes} onChange={v=>set("notes",v)} textarea span2 />
       </div>
 
       {/* Stage change confirmation */}
       {pendingStage && pendingStage !== form.dealStage && (
-        <ConfirmModal
-          title="Update Deal Stage"
-          message={`Move this deal to "${stageInfo(pendingStage).label}"?`}
+        <ConfirmModal title="Update Deal Stage" message={`Move this deal to "${stageInfo(pendingStage).label}"?`}
           confirmLabel="Update Stage"
-          onConfirm={() => { set("dealStage", pendingStage); setPendingStage(null); }}
-          onCancel={() => setPendingStage(null)}
-        />
+          onConfirm={()=>{ set("dealStage",pendingStage); setPendingStage(null); }}
+          onCancel={()=>setPendingStage(null)} />
       )}
 
       <div style={{ display:"flex", gap:10, marginTop:24 }}>
@@ -1825,6 +1896,7 @@ function DealForm({ initial, clients, orgs, onSave, onCancel }) {
             background: isPriority ? C.danger : C.goldDark,
             color:"white", border:"none", borderRadius:12,
             cursor:"pointer", fontSize:13, fontWeight:"bold", letterSpacing:1,
+            boxShadow: isPriority ? `0 4px 16px ${C.danger}44` : "none",
           }}>
           {initial ? "SAVE CHANGES" : "ADD DEAL"}
         </button>
@@ -1847,7 +1919,7 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
 
   const filtered = deals.filter(d=>{
     const cl = getClient(d.contactId), org = getOrg(d.orgId);
-    const matchQ = !q || [d.address,cl?.fullName,org?.name,d.owner].some(f=>(f||"").toLowerCase().includes(q.toLowerCase()));
+    const matchQ = !q || [d.address,cl?.fullName,org?.name,d.createdBy].some(f=>(f||"").toLowerCase().includes(q.toLowerCase()));
     const matchT = typeFilter==="all" || d.dealType===typeFilter;
     const matchS = stageFilter==="all" || d.dealStage===stageFilter;
     return matchQ && matchT && matchS;
@@ -1855,7 +1927,6 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
 
   const totalValue    = deals.reduce((s,d)=>s+(d.value||0),0);
   const totalPay      = deals.reduce((s,d)=>s+(d.paymentAmount||0),0);
-  const paidTotal     = deals.filter(d=>d.paymentStatus==="paid").reduce((s,d)=>s+(d.paymentAmount||0),0);
   const priorityCount = deals.filter(d=>d.dealType==="Priority").length;
 
   return (
@@ -1878,7 +1949,7 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
         {[
           { label:"TOTAL VALUE",   val:fmt$(totalValue),  color:C.goldDark },
           { label:"FEE PIPELINE",  val:fmt$(totalPay),    color:C.warning },
-          { label:"COLLECTED",     val:fmt$(paidTotal),   color:C.success },
+          { label:"TOTAL DEALS",   val:deals.length,      color:C.info },
           { label:"PRIORITY",      val:priorityCount,     color:C.danger },
         ].map((k,i)=>(
           <div key={i} style={{ background:"white", borderRadius:12, padding:"12px 10px", border:`1px solid ${C.ivoryDark}`, borderTop:`3px solid ${k.color}`, textAlign:"center" }}>
@@ -1930,7 +2001,6 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
           const org  = getOrg(d.orgId);
           const s    = stageInfo(d.dealStage);
           const isPri = d.dealType==="Priority";
-          const payP  = payInfo(d.paymentStatus);
 
           return (
             <div key={d.id} className="card-hover" style={{
@@ -1960,13 +2030,13 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
                     </div>
                     <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap", alignItems:"center" }}>
                       <StageBadge stageId={d.dealStage} small />
-                      <span style={{ fontSize:10, padding:"3px 8px", borderRadius:10, background:`${payP.color}18`, color:payP.color, border:`1px solid ${payP.color}33` }}>{payP.label}</span>
                       {d.closingDate && <span style={{ fontSize:10, color:"#aaa" }}>📅 {d.closingDate}</span>}
+                      {d.visibleTo && d.visibleTo!=="all" && <span style={{ fontSize:9, padding:"3px 8px", borderRadius:10, background:`${C.info}18`, color:C.info, border:`1px solid ${C.info}33` }}>👁 {d.visibleTo==="managers"?"Managers Only":"Workers Only"}</span>}
                     </div>
                   </div>
                   <div style={{ textAlign:"right", flexShrink:0 }}>
                     <div style={{ fontSize:18, fontWeight:"bold", fontFamily:"Georgia, serif", color: isPri ? C.danger : C.goldDark }}>{fmt$(d.value)}</div>
-                    {d.paymentAmount>0 && <div style={{ fontSize:11, color:payP.color, marginTop:2 }}>Fee: {fmt$(d.paymentAmount)}</div>}
+                    {d.paymentAmount>0 && <div style={{ fontSize:11, color:C.goldDark, marginTop:2 }}>Fee: {fmt$(d.paymentAmount)}</div>}
                   </div>
                 </div>
 
@@ -2029,13 +2099,15 @@ export default function App() {
   const [editingOrg,        setEditingOrg]       = useState(null);
   const [dealFormOpen,      setDealFormOpen]     = useState(false);
   const [editingDeal,       setEditingDeal]      = useState(null);
-  // Inline "Add New Contact" from OrgForm: stores {prefillName, callback}
+  // Inline "Add New Contact" — from OrgForm or DealForm
   const [addContactInline,  setAddContactInline] = useState(null);
+  // Inline "Add New Org" — from DealForm
+  const [addOrgInline,      setAddOrgInline]     = useState(null);
 
   // Restrict workers to their allowed views
   const defaultView = user?.role === "manager" ? "dashboard" : "clients";
 
-  const activeNav = ["dashboard","clients","orgs","deals","search","settings"].includes(view) ? view : "categories";
+  const activeNav = ["dashboard","clients","orgs","deals","search","settings","categories","location","lenders","form"].includes(view) ? (["categories","location","lenders","form"].includes(view) ? "categories" : view) : "categories";
 
   const navigate = id => {
     setSidebarOpen(false);
@@ -2089,11 +2161,16 @@ export default function App() {
     }
     setClientFormOpen(false);
     setEditingClient(null);
-    // If opened from OrgForm "Add New Contact", fire callback and re-open OrgForm
+    // If opened from OrgForm or DealForm "Add New Contact", fire callback and re-open parent
     if (addContactInline) {
       addContactInline.callback(saved);
       setAddContactInline(null);
-      setOrgFormOpen(true);
+      // Re-open whichever parent triggered this
+      if (addOrgInline === null && !orgFormOpen) {
+        setDealFormOpen(true);
+      } else {
+        setOrgFormOpen(true);
+      }
     }
   };
   const handleClientEdit   = c  => { setEditingClient(c); setClientFormOpen(true); };
@@ -2106,12 +2183,21 @@ export default function App() {
 
   // Org handlers
   const handleOrgSave = form => {
+    let saved;
     if (editingOrg) {
-      setOrgs(os => os.map(o => o.id === editingOrg.id ? { ...form, id: editingOrg.id } : o));
+      saved = { ...form, id: editingOrg.id };
+      setOrgs(os => os.map(o => o.id === editingOrg.id ? saved : o));
     } else {
-      setOrgs(os => [...os, { ...form, id: Date.now() }]);
+      saved = { ...form, id: Date.now() };
+      setOrgs(os => [...os, saved]);
     }
     setOrgFormOpen(false); setEditingOrg(null);
+    // Fire callback if opened inline from DealForm
+    if (addOrgInline) {
+      addOrgInline.callback(saved);
+      setAddOrgInline(null);
+      setDealFormOpen(true);
+    }
   };
   const handleOrgEdit   = o  => { setEditingOrg(o); setOrgFormOpen(true); };
   const handleOrgDelete = id => setOrgs(os => os.filter(o => o.id !== id));
@@ -2217,25 +2303,37 @@ export default function App() {
                 setOrgFormOpen(false);
                 setAddContactInline({ prefillName, callback: cb });
                 setEditingClient({ fullName: prefillName, phone:"", email:"", address:"",
-                  idFileName:"", contractFileName:"", notes:"", paymentAmount:"",
-                  paymentStatus:"not_paid", dealStage:"intake", _isNew:true });
+                  notes:"", _isNew:true });
                 setClientFormOpen(true);
               }}
             />
           </Modal>
         )}
         {dealFormOpen && (
-          <Modal onClose={() => { setDealFormOpen(false); setEditingDeal(null); }} maxWidth={600}>
+          <Modal onClose={() => { setDealFormOpen(false); setEditingDeal(null); }} maxWidth={640}>
             <DealForm
               initial={editingDeal}
               clients={clients}
               orgs={orgs}
+              currentUser={user}
               onSave={handleDealSave}
               onCancel={() => { setDealFormOpen(false); setEditingDeal(null); }}
+              onAddNewContact={(prefillName, cb) => {
+                setDealFormOpen(false);
+                setAddContactInline({ prefillName, callback: cb });
+                setEditingClient({ fullName: prefillName, phones:[{number:"",tag:"Work"}], emails:[""], address:"", notes:"", _isNew:true });
+                setClientFormOpen(true);
+              }}
+              onAddNewOrg={(prefillName, cb) => {
+                setDealFormOpen(false);
+                setAddOrgInline({ prefillName, callback: cb });
+                setEditingOrg({ name: prefillName, sponsor:"", sponsor2:"", officeContact:"", mgmtContact:"", assistance:"", loanOfficer:"", address:"", entityType:"LLC", phones:[{number:"",tag:"Work"}], emails:[""], _isNew:true });
+                setOrgFormOpen(true);
+              }}
             />
           </Modal>
         )}
       </div>
     </>
   );
-    }
+            }
