@@ -417,10 +417,10 @@ function Header({ user, onLogout, onHome, onMenuToggle, sidebarOpen }) {
 function Sidebar({ activeNav, onNavigate, isOpen, onClose, userRole }) {
   const mainLinks = [
     { id: "dashboard",  label: "Dashboard", icon: "◈" },
-    { id: "categories", label: "Lenders",   icon: "⊞" },
     { id: "clients",    label: "Contacts",  icon: "👤" },
     { id: "orgs",       label: "Orgs",      icon: "🏢" },
     { id: "deals",      label: "Deals",     icon: "🤝" },
+    { id: "categories", label: "Lenders",   icon: "⊞" },
     ...(userRole === "manager" ? [{ id: "settings", label: "Settings", icon: "⚙" }] : []),
   ];
 
@@ -2045,14 +2045,6 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
                   <DealPipeline currentStage={d.dealStage} />
                 </div>
 
-                {/* Files row */}
-                {(d.idFileName||d.contractFileName) && (
-                  <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
-                    {d.idFileName && <span style={{ fontSize:10, color:C.goldDark, background:`${C.goldDark}11`, padding:"3px 8px", borderRadius:8 }}>📄 {d.idFileName}</span>}
-                    {d.contractFileName && <span style={{ fontSize:10, color:C.goldDark, background:`${C.goldDark}11`, padding:"3px 8px", borderRadius:8 }}>📋 {d.contractFileName}</span>}
-                  </div>
-                )}
-
                 {d.notes && <div style={{ marginTop:10, fontSize:12, color:"#888", lineHeight:1.5, background:C.bg, borderRadius:8, padding:"8px 10px" }}>{d.notes}</div>}
 
                 {/* Actions */}
@@ -2336,4 +2328,4 @@ export default function App() {
       </div>
     </>
   );
-            }
+                                   }
