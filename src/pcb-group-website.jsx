@@ -94,7 +94,18 @@ const INITIAL_DEALS = [
 
 const CATEGORIES   = ["Permanent", "Bridge to Perm", "Construction", "Owner Occupied", "Hard Money"];
 const LOCATIONS    = ["All Locations", "California", "Texas", "New York", "Florida"];
-const LENDER_TYPES = ["Direct Lender", "Correspondent", "Portfolio Lender", "Construction Specialist", "Bank", "Credit Union", "Private"];
+
+// Category-conditional lender type mapping
+const LENDER_TYPES_BY_CATEGORY = {
+  "Permanent":      ["Banks", "Credit Union", "CMBS", "Life Co", "Agency (Fannie Mae and Freddie Mac)"],
+  "Bridge to Perm": ["Traditional Lender", "Balance Sheet Lender"],
+  "Construction":   ["Bank", "Hard Money", "Private Lender"],
+  "Owner Occupied": ["SBA 504", "SBA 7A", "Conventional"],
+  "Hard Money":     ["Private Lender", "Hard Money Lender", "Bridge Lender"],
+};
+const getLenderTypes = cat => LENDER_TYPES_BY_CATEGORY[cat] || ["Other"];
+// Legacy flat list kept for search/display compatibility
+const LENDER_TYPES = [...new Set(Object.values(LENDER_TYPES_BY_CATEGORY).flat())];
 
 // ─────────────────────────────────────────────────────────────
 // INITIAL WORKERS (admin only)
@@ -600,6 +611,145 @@ function FileField({ label, fileName, onChange, span2 }) {
   );
 }
 
+// Enhanced Terms & Conditions upload with view/download support
+function TermsFileField({ label = "Terms & Conditions (PDF / Image)", fileData, fileName, onChange, span2 }) {
+  const ref = useRef();
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const isPdf = fileName && fileName.toLowerCase().endsWith(".pdf");
+
+  const handleFile = e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => onChange({ name: file.name, data: ev.target.result, type: file.type });
+    reader.readAsDataURL(file);
+  };
+
+  const handleDownload = e => {
+    e.stopPropagation();
+    if (!fileData) return;
+    const a = document.createElement("a");
+    a.href = fileData;
+    a.download = fileName || "document";
+    a.click();
+  };
+
+  return (
+    <div style={span2 ? { gridColumn: "1/-1" } : {}}>
+      <div style={fieldLabel}>{label.toUpperCase()}</div>
+
+      {/* Upload zone */}
+      <div style={{
+        border: `1.5px dashed ${fileName ? C.goldDark : C.ivoryDark}`, borderRadius: 10,
+        padding: "12px 14px", background: fileName ? `${C.goldDark}08` : C.bg,
+        display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
+        transition: "all 0.2s",
+      }} onClick={() => !fileName && ref.current?.click()}>
+        <span style={{ fontSize: 18 }}>{fileName ? (isPdf ? "📄" : "🖼️") : "📎"}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, color: fileName ? C.goldDark : "#bbb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: fileName ? "bold" : "normal" }}>
+            {fileName || "Tap to upload PDF or image"}
+          </div>
+          {!fileName && <div style={{ fontSize: 10, color: "#bbb", marginTop: 2 }}>Supported: PDF, PNG, JPG</div>}
+        </div>
+        {fileName && (
+          <button onClick={e => { e.stopPropagation(); ref.current?.click(); }}
+            style={{ background: "none", border: `1px solid ${C.ivoryDark}`, borderRadius: 6, cursor: "pointer", color: "#888", fontSize: 10, padding: "4px 8px", whiteSpace: "nowrap" }}>
+            Replace
+          </button>
+        )}
+        {fileName && (
+          <button onClick={e => { e.stopPropagation(); onChange(null); }}
+            style={{ background: "none", border: "none", cursor: "pointer", color: C.danger, fontSize: 18, padding: "0 2px", lineHeight: 1 }}>×</button>
+        )}
+        <input ref={ref} type="file" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp" style={{ display: "none" }} onChange={handleFile} />
+      </div>
+
+      {/* View / Download actions — only shown when file is uploaded */}
+      {fileName && fileData && (
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button onClick={() => setViewerOpen(true)} className="btn-transition" style={{
+            flex: 1, padding: "9px 14px",
+            background: C.charcoal, color: C.gold,
+            border: "none", borderRadius: 8,
+            cursor: "pointer", fontSize: 11, letterSpacing: 1,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+          }}>
+            <span style={{ fontSize: 13 }}>{isPdf ? "📄" : "🖼️"}</span>
+            View {isPdf ? "PDF" : "Document"}
+          </button>
+          <button onClick={handleDownload} className="btn-transition" style={{
+            padding: "9px 16px",
+            background: `${C.goldDark}18`, color: C.goldDark,
+            border: `1px solid ${C.goldDark}44`, borderRadius: 8,
+            cursor: "pointer", fontSize: 11, letterSpacing: 1,
+            display: "flex", alignItems: "center", gap: 6,
+          }}>
+            <span style={{ fontSize: 13 }}>⬇</span> Download
+          </button>
+        </div>
+      )}
+
+      {/* Viewer Modal */}
+      {viewerOpen && fileData && (
+        <div className="anim-fade" style={{
+          position: "fixed", inset: 0, zIndex: 3000,
+          background: "rgba(0,0,0,0.82)", backdropFilter: "blur(4px)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          padding: 16,
+        }} onClick={e => e.target === e.currentTarget && setViewerOpen(false)}>
+          <div className="anim-fade-up" style={{
+            background: "#111", borderRadius: 14, overflow: "hidden",
+            width: "100%", maxWidth: 820,
+            maxHeight: "90vh", display: "flex", flexDirection: "column",
+            boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+            border: `1px solid ${C.goldDark}33`,
+          }}>
+            {/* Viewer header */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "14px 20px",
+              borderBottom: `1px solid ${C.goldDark}22`,
+              background: "#1a1a1a",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 16 }}>{isPdf ? "📄" : "🖼️"}</span>
+                <span style={{ color: C.gold, fontSize: 13, fontFamily: "Georgia, serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 300 }}>{fileName}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button onClick={handleDownload} className="btn-transition" style={{
+                  padding: "7px 14px", background: `${C.goldDark}22`, color: C.gold,
+                  border: `1px solid ${C.goldDark}44`, borderRadius: 8,
+                  cursor: "pointer", fontSize: 11, letterSpacing: 1,
+                  display: "flex", alignItems: "center", gap: 5,
+                }}>
+                  <span>⬇</span> Download
+                </button>
+                <button onClick={() => setViewerOpen(false)} style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "#888", fontSize: 22, lineHeight: 1, padding: "2px 6px",
+                }}>×</button>
+              </div>
+            </div>
+            {/* Viewer body */}
+            <div style={{ flex: 1, overflow: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, minHeight: 0 }}>
+              {isPdf ? (
+                <iframe
+                  src={fileData}
+                  title={fileName}
+                  style={{ width: "100%", height: "72vh", border: "none", borderRadius: 8, background: "white" }}
+                />
+              ) : (
+                <img src={fileData} alt={fileName} style={{ maxWidth: "100%", maxHeight: "72vh", borderRadius: 8, objectFit: "contain", boxShadow: "0 4px 24px rgba(0,0,0,0.4)" }} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────
 // DEAL PIPELINE VISUAL
 // ─────────────────────────────────────────────────────────────
@@ -995,6 +1145,89 @@ function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user
 // ─────────────────────────────────────────────────────────────
 // LENDER CARD
 // ─────────────────────────────────────────────────────────────
+// Inline Terms & Conditions viewer for LenderCard
+function LenderTermsViewer({ fileName, fileData }) {
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const isPdf = fileName && fileName.toLowerCase().endsWith(".pdf");
+
+  const handleDownload = () => {
+    if (!fileData) return;
+    const a = document.createElement("a");
+    a.href = fileData;
+    a.download = fileName || "document";
+    a.click();
+  };
+
+  return (
+    <div>
+      <div style={fieldLabel}>TERMS &amp; CONDITIONS</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: C.goldDark }}>{isPdf ? "📄" : "🖼️"} {fileName}</span>
+        {fileData && (
+          <>
+            <button onClick={() => setViewerOpen(true)} className="btn-transition" style={{
+              padding: "5px 12px", background: C.charcoal, color: C.gold,
+              border: "none", borderRadius: 7, cursor: "pointer", fontSize: 10, letterSpacing: 1,
+            }}>
+              View {isPdf ? "PDF" : "Doc"}
+            </button>
+            <button onClick={handleDownload} className="btn-transition" style={{
+              padding: "5px 12px", background: `${C.goldDark}18`, color: C.goldDark,
+              border: `1px solid ${C.goldDark}44`, borderRadius: 7, cursor: "pointer", fontSize: 10, letterSpacing: 1,
+            }}>
+              ⬇ Download
+            </button>
+          </>
+        )}
+      </div>
+      {viewerOpen && fileData && (
+        <div className="anim-fade" style={{
+          position: "fixed", inset: 0, zIndex: 3000,
+          background: "rgba(0,0,0,0.82)", backdropFilter: "blur(4px)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          padding: 16,
+        }} onClick={e => e.target === e.currentTarget && setViewerOpen(false)}>
+          <div className="anim-fade-up" style={{
+            background: "#111", borderRadius: 14, overflow: "hidden",
+            width: "100%", maxWidth: 820,
+            maxHeight: "90vh", display: "flex", flexDirection: "column",
+            boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+            border: `1px solid ${C.goldDark}33`,
+          }}>
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "14px 20px", borderBottom: `1px solid ${C.goldDark}22`, background: "#1a1a1a",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 16 }}>{isPdf ? "📄" : "🖼️"}</span>
+                <span style={{ color: C.gold, fontSize: 13, fontFamily: "Georgia, serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 300 }}>{fileName}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button onClick={handleDownload} className="btn-transition" style={{
+                  padding: "7px 14px", background: `${C.goldDark}22`, color: C.gold,
+                  border: `1px solid ${C.goldDark}44`, borderRadius: 8,
+                  cursor: "pointer", fontSize: 11, letterSpacing: 1, display: "flex", alignItems: "center", gap: 5,
+                }}>⬇ Download</button>
+                <button onClick={() => setViewerOpen(false)} style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "#888", fontSize: 22, lineHeight: 1, padding: "2px 6px",
+                }}>×</button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflow: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, minHeight: 0 }}>
+              {isPdf ? (
+                <iframe src={fileData} title={fileName} style={{ width: "100%", height: "72vh", border: "none", borderRadius: 8, background: "white" }} />
+              ) : (
+                <img src={fileData} alt={fileName} style={{ maxWidth: "100%", maxHeight: "72vh", borderRadius: 8, objectFit: "contain", boxShadow: "0 4px 24px rgba(0,0,0,0.4)" }} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LenderCard({ lender, onEdit, onDelete }) {
   const [expanded, setExpanded]         = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1031,7 +1264,7 @@ function LenderCard({ lender, onEdit, onDelete }) {
               {lender.phone    && <div><div style={fieldLabel}>PHONE</div><a href={`tel:${lender.phone}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{lender.phone}</a></div>}
               {lender.assistantPhone && <div><div style={fieldLabel}>ASSISTANT ({lender.assistantName})</div><a href={`tel:${lender.assistantPhone}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{lender.assistantPhone}</a></div>}
               {lender.assistanceEmail && <div><div style={fieldLabel}>ASSISTANCE EMAIL</div><a href={`mailto:${lender.assistanceEmail}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{lender.assistanceEmail}</a></div>}
-              {lender.termsFileName && <div><div style={fieldLabel}>TERMS & CONDITIONS</div><div style={{ color: C.goldDark, fontSize: 12 }}>📋 {lender.termsFileName}</div></div>}
+              {lender.termsFileName && <div style={{ gridColumn: "1/-1" }}><LenderTermsViewer fileName={lender.termsFileName} fileData={lender.termsFileData} /></div>}
               <div><div style={fieldLabel}>TYPE</div><div style={{ color: C.charcoal, fontSize: 13 }}>{lender.lenderType}</div></div>
               <div><div style={fieldLabel}>MIN LOAN</div><div style={{ color: C.charcoal, fontSize: 13 }}>${(lender.minLoan/1e6).toFixed(1)}M</div></div>
               <div><div style={fieldLabel}>MAX LOAN</div><div style={{ color: C.charcoal, fontSize: 13 }}>${(lender.maxLoan/1e6).toFixed(1)}M</div></div>
@@ -1091,7 +1324,7 @@ function CategorySelect({ onSelect }) {
   );
 }
 
-function LocationSelect({ category, lenders, onSelect }) {
+function LocationSelect({ category, lenders, onSelect, onAdd }) {
   const locs = ["All Locations", ...new Set(lenders.filter(l => l.category === category).map(l => l.location))];
   const counts = loc => loc === "All Locations"
     ? lenders.filter(l => l.category === category).length
@@ -1102,6 +1335,21 @@ function LocationSelect({ category, lenders, onSelect }) {
         <span style={{ color: C.goldDark }}>{category}</span>
         <span>›</span>
         <span>Select Location</span>
+      </div>
+      {/* Header row with title + Add Lender button */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ color: C.goldDark, fontSize: 9, letterSpacing: 4, marginBottom: 4 }}>{category.toUpperCase()}</div>
+          <h2 style={{ color: C.charcoal, margin: 0, fontSize: 22, fontFamily: "Georgia, serif", fontWeight: "normal" }}>Select Location</h2>
+        </div>
+        <button onClick={onAdd} className="btn-transition" style={{
+          padding: "12px 20px", background: C.charcoal, color: C.gold,
+          border: "none", borderRadius: 12, cursor: "pointer",
+          fontSize: 12, letterSpacing: 2,
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <span style={{ fontSize: 16 }}>+</span> ADD LENDER
+        </button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
         {locs.map(loc => (
@@ -1193,17 +1441,31 @@ function SearchView({ lenders, onEdit, onDelete }) {
 // LENDER FORM
 // ─────────────────────────────────────────────────────────────
 function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCancel }) {
-  const [form, setForm] = useState(initial || {
-    category: defaultCategory || "Permanent",
+  const initCategory = initial?.category || defaultCategory || "Permanent";
+  const [form, setForm] = useState(initial ? {
+    ...initial,
+    termsFileData: initial.termsFileData || null,
+    termsFileName: initial.termsFileName || "",
+  } : {
+    category: initCategory,
     location: defaultLocation === "All Locations" ? "" : (defaultLocation || ""),
     address: "",
     bankName: "", contactName: "", email: "", phone: "",
     assistantPhone: "", assistantName: "", assistanceEmail: "",
-    lenderType: "Direct Lender",
+    lenderType: getLenderTypes(initCategory)[0],
     termsFileName: "",
+    termsFileData: null,
     notes: "", rate: "", minLoan: "", maxLoan: "",
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // When category changes, reset lenderType to first valid option for new category
+  const handleCategoryChange = newCat => {
+    const types = getLenderTypes(newCat);
+    setForm(f => ({ ...f, category: newCat, lenderType: types[0] }));
+  };
+
+  const availableTypes = getLenderTypes(form.category);
 
   return (
     <div style={{ padding: "20px 16px 90px", maxWidth: 700, margin: "0 auto", width: "100%" }}>
@@ -1218,15 +1480,52 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
           <FormField label="Phone" value={form.phone} onChange={v => set("phone", v)} />
           <FormField label="Assistant Name" value={form.assistantName} onChange={v => set("assistantName", v)} />
           <FormField label="Assistant Phone" value={form.assistantPhone} onChange={v => set("assistantPhone", v)} />
-          <FormField label="Assistance Email" type="email" value={form.assistanceEmail} onChange={v => set("assistanceEmail", v)} />
-          <SelectField label="Lender Type" value={form.lenderType} onChange={v => set("lenderType", v)} options={LENDER_TYPES} />
-          <SelectField label="Category" value={form.category} onChange={v => set("category", v)} options={CATEGORIES} />
+          <FormField label="Assistance Email" type="email" value={form.assistanceEmail} onChange={v => set("assistanceEmail", v)} span2 />
+
+          {/* Category first — drives lender type dropdown */}
+          <div>
+            <div style={fieldLabel}>CATEGORY <span style={{ color: C.danger }}>*</span></div>
+            <select value={form.category} onChange={e => handleCategoryChange(e.target.value)}
+              style={{ ...inputStyle, cursor: "pointer", appearance: "none",
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          {/* Conditional Lender Type — filtered by selected category */}
+          <div>
+            <div style={fieldLabel}>
+              LENDER TYPE
+              <span style={{ marginLeft: 6, fontSize: 9, color: C.goldDark, letterSpacing: 1 }}>
+                ↳ {form.category}
+              </span>
+            </div>
+            <select value={form.lenderType} onChange={e => set("lenderType", e.target.value)}
+              style={{ ...inputStyle, cursor: "pointer", appearance: "none",
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center",
+                border: `1.5px solid ${C.goldDark}66`,
+                background: `${C.goldDark}08`,
+              }}>
+              {availableTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
           <FormField label="Location / State" value={form.location} onChange={v => set("location", v)} />
           <AddressField label="Address" value={form.address || ""} onChange={v => set("address", v)} span2 />
           <FormField label="Interest Rate (%)" type="number" step="0.01" value={form.rate} onChange={v => set("rate", v)} />
           <FormField label="Min Loan ($)" type="number" value={form.minLoan} onChange={v => set("minLoan", v)} />
           <FormField label="Max Loan ($)" type="number" value={form.maxLoan} onChange={v => set("maxLoan", v)} />
-          <FileField label="Terms & Conditions (PDF)" fileName={form.termsFileName} onChange={v => set("termsFileName", v)} span2 />
+
+          {/* Enhanced Terms & Conditions with view/download */}
+          <TermsFileField
+            label="Terms & Conditions (PDF / Image)"
+            fileName={form.termsFileName}
+            fileData={form.termsFileData}
+            onChange={f => setForm(prev => ({ ...prev, termsFileName: f ? f.name : "", termsFileData: f ? f.data : null }))}
+            span2
+          />
           <FormField label="Notes" value={form.notes} onChange={v => set("notes", v)} textarea span2 />
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
@@ -2235,7 +2534,7 @@ export default function App() {
         return <LenderList lenders={lenders} category={selectedCategory} location={selectedLocation}
           onEdit={handleLenderEdit} onDelete={handleLenderDelete} onAdd={handleLenderAdd} onBack={() => setView("location")} />;
       case "location":
-        return <LocationSelect category={selectedCategory} lenders={lenders} onSelect={handleLocationSelect} />;
+        return <LocationSelect category={selectedCategory} lenders={lenders} onSelect={handleLocationSelect} onAdd={handleLenderAdd} />;
       case "categories":
         return <CategorySelect onSelect={handleCategorySelect} />;
       case "clients":
@@ -2328,4 +2627,4 @@ export default function App() {
       </div>
     </>
   );
-                                   }
+    }
