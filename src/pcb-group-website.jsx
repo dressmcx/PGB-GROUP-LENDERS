@@ -54,6 +54,7 @@ const DEAL_STAGES = [
   { id: "commitment",   label: "Loan Commitment Issued",       color: "#2D7A4F", bg: "#EDF7F2", icon: "✅" },
   { id: "pre_closing",  label: "Pre-Closing Checklist",        color: "#1D4ED8", bg: "#EFF6FF", icon: "☑️" },
   { id: "closed",       label: "Approval & Closing",           color: "#92400E", bg: "#FEF3C7", icon: "🏆" },
+  { id: "completed",    label: "Completed",                    color: "#059669", bg: "#D1FAE5", icon: "✓" },
   { id: "cancelled",    label: "Cancelled",                    color: "#991B1B", bg: "#FEE2E2", icon: "✗" },
 ];
 
@@ -678,15 +679,6 @@ function TermsFileField({ label = "Terms & Conditions (PDF / Image)", fileData, 
             <span style={{ fontSize: 13 }}>{isPdf ? "📄" : "🖼️"}</span>
             View {isPdf ? "PDF" : "Document"}
           </button>
-          <button onClick={handleDownload} className="btn-transition" style={{
-            padding: "9px 16px",
-            background: `${C.goldDark}18`, color: C.goldDark,
-            border: `1px solid ${C.goldDark}44`, borderRadius: 8,
-            cursor: "pointer", fontSize: 11, letterSpacing: 1,
-            display: "flex", alignItems: "center", gap: 6,
-          }}>
-            <span style={{ fontSize: 13 }}>⬇</span> Download
-          </button>
         </div>
       )}
 
@@ -980,7 +972,7 @@ function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user
   const recentClients  = [...clients].sort((a,b)=>b.id-a.id).slice(0,5);
 
   // Pipeline columns — group clients by stage
-  const pipelineStages = DEAL_STAGES.filter(s=>s.id!=="cancelled");
+  const pipelineStages = DEAL_STAGES.filter(s=>s.id!=="cancelled" && s.id!=="completed");
   const dealsByStage   = id => (deals||[]).filter(d=>d.dealStage===id);
 
   const kpis = [
@@ -1119,7 +1111,7 @@ function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user
           {/* Stage summary mini-chart */}
           <div style={{ background:"white", borderRadius:14, padding:"16px", border:`1px solid ${C.ivoryDark}` }}>
             <div style={{ fontSize:9, color:"#aaa", letterSpacing:3, marginBottom:10 }}>STAGE BREAKDOWN</div>
-            {DEAL_STAGES.filter(s=>s.id!=="cancelled").map(s => {
+            {DEAL_STAGES.filter(s=>s.id!=="cancelled" && s.id!=="completed").map(s => {
               const cnt = dealsByStage(s.id).length;
               if (cnt===0) return null;
               const pct = Math.round((cnt/((deals||[]).length||1))*100)||0;
@@ -1873,7 +1865,6 @@ function OrgForm({ initial, clients, onSave, onCancel, onAddNewContact }) {
         <ContactAutocomplete label="Office Contact" value={form.officeContact} onChange={v=>set("officeContact",v)} clients={clients} onAddNew={handleAddNew} />
         <ContactAutocomplete label="Management Company Contact" value={form.mgmtContact} onChange={v=>set("mgmtContact",v)} clients={clients} onAddNew={handleAddNew} />
         <ContactAutocomplete label="Assistance" value={form.assistance} onChange={v=>set("assistance",v)} clients={clients} onAddNew={handleAddNew} />
-        <ContactAutocomplete label="Loan Officer" value={form.loanOfficer} onChange={v=>set("loanOfficer",v)} clients={clients} onAddNew={handleAddNew} />
         <AddressField label="Address" value={form.address} onChange={v=>set("address",v)} span2 />
         <MultiPhoneField phones={form.phones} onChange={v=>set("phones",v)} />
         <MultiEmailField emails={form.emails} onChange={v=>set("emails",v)} />
@@ -2068,11 +2059,13 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
     paymentAmount:"",
     visibleTo:"all",
     notes:"",
+    dealNotes: [],
   };
   const [form, setForm] = useState(initial
-    ? {...initial, paymentAmount:initial.paymentAmount||"", value:initial.value||"", createdBy:initial.createdBy||currentUser?.name||""}
+    ? {...initial, paymentAmount:initial.paymentAmount||"", value:initial.value||"", createdBy:initial.createdBy||currentUser?.name||"", dealNotes:initial.dealNotes||[]}
     : blank);
   const [pendingStage, setPendingStage] = useState(null);
+  const [newNote, setNewNote] = useState("");
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
   const isPriority = form.dealType === "Priority";
@@ -2101,11 +2094,6 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-
-        {/* Contact Person — inline quick-add */}
-        <DealLinkField label="Contact Person" items={clients} value={form.contactId}
-          onChange={v=>set("contactId",v)} idField="id" nameField="fullName"
-          onAddNew={name=>onAddNewContact(name, newC=>set("contactId", newC.id))} />
 
         {/* Organization — inline quick-add */}
         <DealLinkField label="Organization" items={orgs} value={form.orgId}
@@ -2145,7 +2133,7 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
               background: form.dealType==="Priority" ? "#FEF2F2" : C.bg,
             }}>
             <option value="Regular">Regular</option>
-            <option value="Priority">🔴 Priority</option>
+            <option value="Priority">Priority</option>
           </select>
         </div>
 
@@ -2177,6 +2165,41 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
         </div>
 
         <FormField label="Notes / Comments" value={form.notes} onChange={v=>set("notes",v)} textarea span2 />
+
+        {/* Deal Notes - Free text notes with done/hidden toggle */}
+        <div style={{ gridColumn: "1/-1" }}>
+          <div style={fieldLabel}>DEAL NOTES (FREE TEXT)</div>
+          <div style={{ display:"flex", gap:8, marginBottom:12, alignItems:"flex-start" }}>
+            <textarea value={newNote} onChange={e=>setNewNote(e.target.value)} placeholder="Add a note about this deal..."
+              style={{...inputStyle, flex:1, resize:"vertical"}} rows={2} />
+            <button onClick={()=>{
+              if(newNote.trim()) {
+                const noteId = Date.now();
+                set("dealNotes", [...(form.dealNotes||[]), {id:noteId, text:newNote.trim(), done:false, createdAt:new Date().toISOString().slice(0,10)}]);
+                setNewNote("");
+              }
+            }} style={{
+              padding:"11px 16px", background:C.charcoal, color:C.gold, border:"none", borderRadius:8,
+              cursor:"pointer", fontSize:11, fontWeight:"bold", letterSpacing:1, whiteSpace:"nowrap", marginTop:2
+            }}>+ ADD NOTE</button>
+          </div>
+          {(form.dealNotes||[]).filter(n=>!n.done).length>0 && (
+            <div style={{ background:C.bg, borderRadius:10, padding:"12px 14px", marginBottom:12 }}>
+              {(form.dealNotes||[]).filter(n=>!n.done).map(note=>(
+                <div key={note.id} style={{ display:"flex", alignItems:"flex-start", gap:10, marginBottom:10, paddingBottom:10, borderBottom:`1px solid ${C.ivory}` }}>
+                  <button onClick={()=>set("dealNotes", (form.dealNotes||[]).map(n=>n.id===note.id?{...n,done:true}:n))}
+                    style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, padding:0, flexShrink:0 }}>☐</button>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, color:C.charcoal, lineHeight:1.5 }}>{note.text}</div>
+                    <div style={{ fontSize:9, color:"#aaa", marginTop:4 }}>{note.createdAt}</div>
+                  </div>
+                  <button onClick={()=>set("dealNotes", (form.dealNotes||[]).filter(n=>n.id!==note.id))}
+                    style={{ background:"none", border:"none", cursor:"pointer", color:C.danger, fontSize:14, padding:0, flexShrink:0 }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Stage change confirmation */}
@@ -2221,7 +2244,8 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
     const matchQ = !q || [d.address,cl?.fullName,org?.name,d.createdBy].some(f=>(f||"").toLowerCase().includes(q.toLowerCase()));
     const matchT = typeFilter==="all" || d.dealType===typeFilter;
     const matchS = stageFilter==="all" || d.dealStage===stageFilter;
-    return matchQ && matchT && matchS;
+    const isActive = d.dealStage !== "cancelled" && d.dealStage !== "completed";
+    return matchQ && matchT && matchS && isActive;
   });
 
   const totalValue    = deals.reduce((s,d)=>s+(d.value||0),0);
@@ -2627,4 +2651,4 @@ export default function App() {
       </div>
     </>
   );
-    }
+            }
