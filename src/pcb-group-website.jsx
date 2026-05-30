@@ -433,7 +433,10 @@ function Sidebar({ activeNav, onNavigate, isOpen, onClose, userRole }) {
     { id: "orgs",       label: "Orgs",      icon: "🏢" },
     { id: "deals",      label: "Deals",     icon: "🤝" },
     { id: "categories", label: "Lenders",   icon: "⊞" },
-    ...(userRole === "manager" ? [{ id: "settings", label: "Settings", icon: "⚙" }] : []),
+    ...(userRole === "manager" ? [
+      { id: "workers",  label: "Workers",   icon: "📊" },
+      { id: "settings", label: "Settings",  icon: "⚙" },
+    ] : []),
   ];
 
   return (
@@ -943,12 +946,33 @@ function ClientsView({ clients, onAdd, onEdit, onDelete }) {
       <div style={{ background:"white", borderRadius:14, padding:"14px", marginBottom:16, border:`1px solid ${C.ivoryDark}` }}>
         <input type="text" placeholder="🔍  Search contacts by name, email, phone…" value={q} onChange={e=>setQ(e.target.value)}
           style={{...inputStyle, marginBottom:10, fontSize:13}} />
-        <div style={{ display:"flex", gap:8 }}>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
           <select value={sortBy} onChange={e=>setSortBy(e.target.value)}
-            style={{ flex:1, padding:"9px 12px", background:C.bg, border:`1.5px solid ${C.ivoryDark}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>
+            style={{ flex:1, minWidth:120, padding:"9px 12px", background:C.bg, border:`1.5px solid ${C.ivoryDark}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>
             <option value="newest">Newest First</option>
             <option value="name">Name A–Z</option>
           </select>
+          <button onClick={()=>{
+            const headers = ["Full Name","Phone","Email","Address","Notes","Created At"];
+            const rows = filtered.map(c=>[
+              c.fullName,
+              (c.phones||[]).map(p=>p.number).filter(Boolean).join("; "),
+              (c.emails||[]).filter(Boolean).join("; "),
+              c.address||"",
+              c.notes||"",
+              c.createdAt||"",
+            ]);
+            const csv = [headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+            const blob = new Blob([csv],{type:"text/csv"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href=url; a.download="contacts.csv"; a.click(); URL.revokeObjectURL(url);
+          }} className="btn-transition" style={{
+            padding:"9px 16px", background:C.success, color:"white", border:"none",
+            borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:"bold", letterSpacing:0.5,
+            display:"flex", alignItems:"center", gap:6, whiteSpace:"nowrap", flexShrink:0,
+          }}>
+            📊 Export to Excel
+          </button>
         </div>
       </div>
 
@@ -1535,6 +1559,164 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
 }
 
 // ─────────────────────────────────────────────────────────────
+// WORKERS VIEW — Deal performance by "Created By" field
+// ─────────────────────────────────────────────────────────────
+function WorkersView({ deals, workers }) {
+  const [dateFilter, setDateFilter] = useState("all");
+  const [customFrom,  setCustomFrom]  = useState("");
+  const [customTo,    setCustomTo]    = useState("");
+
+  const today = new Date();
+  const toDateStr = d => d.toISOString().slice(0, 10);
+
+  const filterDeal = d => {
+    const created = d.createdAt || "";
+    if (!created) return true;
+    if (dateFilter === "today") return created === toDateStr(today);
+    if (dateFilter === "7days") {
+      const from = new Date(today); from.setDate(from.getDate()-6);
+      return created >= toDateStr(from);
+    }
+    if (dateFilter === "30days") {
+      const from = new Date(today); from.setDate(from.getDate()-29);
+      return created >= toDateStr(from);
+    }
+    if (dateFilter === "custom") {
+      if (customFrom && created < customFrom) return false;
+      if (customTo && created > customTo) return false;
+      return true;
+    }
+    return true;
+  };
+
+  const filteredDeals = deals.filter(filterDeal);
+  const totalFiltered = filteredDeals.length;
+
+  // Group by createdBy
+  const workerNames = [...new Set([
+    ...workers.map(w=>w.name),
+    ...deals.map(d=>d.createdBy).filter(Boolean),
+  ])].filter(Boolean);
+
+  const stats = workerNames.map(name => {
+    const workerDeals = filteredDeals.filter(d=>(d.createdBy||"")===name);
+    const totalValue  = workerDeals.reduce((s,d)=>s+(d.value||0),0);
+    const totalFees   = workerDeals.reduce((s,d)=>s+(d.paymentAmount||0),0);
+    const pct = totalFiltered>0 ? Math.round((workerDeals.length/totalFiltered)*100) : 0;
+    const stageBreakdown = DEAL_STAGES.map(s=>({
+      ...s, count: workerDeals.filter(d=>d.dealStage===s.id).length,
+    })).filter(s=>s.count>0);
+    return { name, count:workerDeals.length, totalValue, totalFees, pct, stageBreakdown };
+  }).sort((a,b)=>b.count-a.count);
+
+  const dateFilterOptions = [
+    { value:"all",    label:"All Time"     },
+    { value:"today",  label:"Today"        },
+    { value:"7days",  label:"Last 7 Days"  },
+    { value:"30days", label:"Last 30 Days" },
+    { value:"custom", label:"Custom Range" },
+  ];
+
+  return (
+    <div style={{ padding:"20px 16px 40px", maxWidth:860, margin:"0 auto", width:"100%" }}>
+      <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>PERFORMANCE</div>
+      <h2 style={{ margin:"0 0 20px", fontSize:22, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
+        Workers <span style={{ color:"#bbb", fontSize:16 }}>({workers.length})</span>
+      </h2>
+
+      {/* Date filter */}
+      <div style={{ background:"white", borderRadius:14, padding:"14px", marginBottom:20, border:`1px solid ${C.ivoryDark}` }}>
+        <div style={{ fontSize:9, color:"#aaa", letterSpacing:2, marginBottom:10 }}>DATE FILTER</div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {dateFilterOptions.map(opt=>(
+            <button key={opt.value} onClick={()=>setDateFilter(opt.value)} className="btn-transition"
+              style={{ padding:"7px 14px", borderRadius:20, cursor:"pointer", fontSize:11, border:`1px solid ${C.ivoryDark}`,
+                background:dateFilter===opt.value?C.goldDark:C.bg, color:dateFilter===opt.value?"white":C.charcoal, fontWeight:dateFilter===opt.value?"bold":"normal" }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        {dateFilter==="custom" && (
+          <div style={{ display:"flex", gap:10, marginTop:12, alignItems:"center", flexWrap:"wrap" }}>
+            <div>
+              <div style={fieldLabel}>FROM</div>
+              <input type="date" value={customFrom} onChange={e=>setCustomFrom(e.target.value)} style={{...inputStyle, width:"auto"}} />
+            </div>
+            <div>
+              <div style={fieldLabel}>TO</div>
+              <input type="date" value={customTo} onChange={e=>setCustomTo(e.target.value)} style={{...inputStyle, width:"auto"}} />
+            </div>
+          </div>
+        )}
+        <div style={{ marginTop:10, fontSize:11, color:"#aaa" }}>{totalFiltered} deal{totalFiltered!==1?"s":""} in selected period</div>
+      </div>
+
+      {/* Worker cards */}
+      {stats.length===0 ? (
+        <div style={{ textAlign:"center", padding:"50px 0", color:"#bbb", fontSize:13 }}>No worker data found.</div>
+      ) : stats.map((w,i) => (
+        <div key={w.name} className="card-hover" style={{
+          background:"white", border:`1px solid ${C.ivoryDark}`,
+          borderLeft:`4px solid ${C.goldDark}`, borderRadius:14,
+          padding:"18px", marginBottom:12,
+          boxShadow:"0 1px 4px rgba(0,0,0,0.05)",
+        }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, marginBottom:14, flexWrap:"wrap" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+              <div style={{
+                width:44, height:44, borderRadius:"50%", flexShrink:0,
+                background:`${C.goldDark}22`, display:"flex", alignItems:"center",
+                justifyContent:"center", fontSize:17, color:C.goldDark, fontWeight:"bold",
+              }}>
+                {w.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div style={{ fontWeight:"bold", fontSize:15, fontFamily:"Georgia, serif", color:C.charcoal }}>{w.name}</div>
+                <div style={{ fontSize:10, color:"#aaa", marginTop:2 }}>
+                  {w.count} deal{w.count!==1?"s":""} · {w.pct}% of pipeline
+                </div>
+              </div>
+            </div>
+            <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>TOTAL VALUE</div>
+                <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.goldDark }}>{fmt$(w.totalValue)}</div>
+              </div>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>FEE PIPELINE</div>
+                <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.warning }}>{fmt$(w.totalFees)}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* % bar */}
+          <div style={{ marginBottom:12 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+              <span style={{ fontSize:9, color:"#aaa", letterSpacing:1 }}>SHARE OF DEALS</span>
+              <span style={{ fontSize:9, color:C.goldDark, fontWeight:"bold" }}>{w.pct}%</span>
+            </div>
+            <div style={{ height:6, background:"#F3F4F6", borderRadius:3 }}>
+              <div style={{ height:"100%", width:`${w.pct}%`, background:C.goldDark, borderRadius:3, transition:"width 0.5s" }} />
+            </div>
+          </div>
+
+          {/* Stage breakdown */}
+          {w.stageBreakdown.length>0 && (
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {w.stageBreakdown.map(s=>(
+                <span key={s.id} style={{ fontSize:9, padding:"3px 9px", borderRadius:12, border:`1px solid ${s.color}33`, background:s.bg, color:s.color, fontWeight:"bold" }}>
+                  {s.icon} {s.label} ({s.count})
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // SETTINGS VIEW — Worker Management (Manager only)
 // ─────────────────────────────────────────────────────────────
 function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
@@ -1906,7 +2088,31 @@ function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
         }}>+ ADD ORG</button>
       </div>
       <input type="text" placeholder="🔍  Search organizations…" value={q} onChange={e=>setQ(e.target.value)}
-        style={{...inputStyle, marginBottom:16}} />
+        style={{...inputStyle, marginBottom:10}} />
+      <div style={{ marginBottom:16 }}>
+        <button onClick={()=>{
+          const headers = ["Name","Entity Type","Owner","Loan Officer","Address","Phone","Email"];
+          const rows = filtered.map(o=>[
+            o.name,
+            o.entityType||"",
+            o.owner||"",
+            o.loanOfficer||"",
+            o.address||"",
+            (o.phones||[]).map(p=>p.number).filter(Boolean).join("; "),
+            (o.emails||[]).filter(Boolean).join("; "),
+          ]);
+          const csv = [headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+          const blob = new Blob([csv],{type:"text/csv"});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a"); a.href=url; a.download="organizations.csv"; a.click(); URL.revokeObjectURL(url);
+        }} className="btn-transition" style={{
+          padding:"9px 16px", background:C.success, color:"white", border:"none",
+          borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:"bold", letterSpacing:0.5,
+          display:"inline-flex", alignItems:"center", gap:6,
+        }}>
+          📊 Export to Excel
+        </button>
+      </div>
       {filtered.length === 0
         ? <div style={{ textAlign:"center", padding:"50px 0", color:"#bbb" }}>No organizations found.</div>
         : filtered.map(o => (
@@ -1927,7 +2133,7 @@ function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
               </div>
               <div style={{ display:"flex", gap:6, flexShrink:0 }}>
                 <button onClick={()=>onEdit(o)} className="btn-transition" style={{ padding:"7px 12px", background:C.charcoal, color:C.gold, border:"none", borderRadius:8, cursor:"pointer", fontSize:11 }}>EDIT</button>
-                <button onClick={()=>setConfirmDel(o)} style={{ background:"none", border:"none", color:C.danger, cursor:"pointer", fontSize:11, textDecoration:"underline", padding:"7px 4px" }}>Del</button>
+                <button onClick={()=>setConfirmDel(o)} style={{ background:"none", border:"none", color:C.danger, cursor:"pointer", fontSize:11, textDecoration:"underline", padding:"7px 4px" }}>Delete</button>
               </div>
             </div>
 
@@ -2060,6 +2266,7 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
     visibleTo:"all",
     notes:"",
     dealNotes: [],
+    _pendingCompleteNote: null,
   };
   const [form, setForm] = useState(initial
     ? {...initial, paymentAmount:initial.paymentAmount||"", value:initial.value||"", createdBy:initial.createdBy||currentUser?.name||"", dealNotes:initial.dealNotes||[]}
@@ -2166,7 +2373,7 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
 
         <FormField label="Notes / Comments" value={form.notes} onChange={v=>set("notes",v)} textarea span2 />
 
-        {/* Deal Notes - Free text notes with done/hidden toggle */}
+        {/* Deal Notes - Free text notes with Complete button and history */}
         <div style={{ gridColumn: "1/-1" }}>
           <div style={fieldLabel}>DEAL NOTES (FREE TEXT)</div>
           <div style={{ display:"flex", gap:8, marginBottom:12, alignItems:"flex-start" }}>
@@ -2183,12 +2390,15 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
               cursor:"pointer", fontSize:11, fontWeight:"bold", letterSpacing:1, whiteSpace:"nowrap", marginTop:2
             }}>+ ADD NOTE</button>
           </div>
+          {/* Active notes (not done) */}
           {(form.dealNotes||[]).filter(n=>!n.done).length>0 && (
             <div style={{ background:C.bg, borderRadius:10, padding:"12px 14px", marginBottom:12 }}>
               {(form.dealNotes||[]).filter(n=>!n.done).map(note=>(
                 <div key={note.id} style={{ display:"flex", alignItems:"flex-start", gap:10, marginBottom:10, paddingBottom:10, borderBottom:`1px solid ${C.ivory}` }}>
-                  <button onClick={()=>set("dealNotes", (form.dealNotes||[]).map(n=>n.id===note.id?{...n,done:true}:n))}
-                    style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, padding:0, flexShrink:0 }}>☐</button>
+                  <button onClick={()=>set("_pendingCompleteNote", note.id)}
+                    style={{ padding:"5px 10px", background:C.success, color:"white", border:"none", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:"bold", letterSpacing:0.5, whiteSpace:"nowrap", flexShrink:0, marginTop:2 }}>
+                    Complete
+                  </button>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, color:C.charcoal, lineHeight:1.5 }}>{note.text}</div>
                     <div style={{ fontSize:9, color:"#aaa", marginTop:4 }}>{note.createdAt}</div>
@@ -2197,6 +2407,23 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
                     style={{ background:"none", border:"none", cursor:"pointer", color:C.danger, fontSize:14, padding:0, flexShrink:0 }}>×</button>
                 </div>
               ))}
+            </div>
+          )}
+          {/* Completed notes history */}
+          {(form.dealNotes||[]).filter(n=>n.done).length>0 && (
+            <div style={{ marginTop:8 }}>
+              <div style={{ fontSize:9, color:"#aaa", letterSpacing:2, marginBottom:6 }}>COMPLETED NOTES HISTORY</div>
+              <div style={{ background:"#F0FFF4", borderRadius:10, padding:"10px 14px", border:`1px solid ${C.success}33` }}>
+                {(form.dealNotes||[]).filter(n=>n.done).map(note=>(
+                  <div key={note.id} style={{ display:"flex", alignItems:"flex-start", gap:10, marginBottom:8, paddingBottom:8, borderBottom:`1px solid ${C.success}22` }}>
+                    <span style={{ color:C.success, fontSize:16, flexShrink:0, marginTop:1 }}>✔</span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:12, color:"#555", lineHeight:1.5, textDecoration:"line-through" }}>{note.text}</div>
+                      <div style={{ fontSize:9, color:"#aaa", marginTop:3 }}>Completed · {note.createdAt}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -2208,6 +2435,17 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
           confirmLabel="Update Stage"
           onConfirm={()=>{ set("dealStage",pendingStage); setPendingStage(null); }}
           onCancel={()=>setPendingStage(null)} />
+      )}
+
+      {/* Complete note confirmation */}
+      {form._pendingCompleteNote && (
+        <ConfirmModal title="Complete Note" message="Are you sure you want to mark this note as complete? It will be moved to history."
+          confirmLabel="Complete"
+          onConfirm={()=>{
+            set("dealNotes", (form.dealNotes||[]).map(n=>n.id===form._pendingCompleteNote?{...n,done:true}:n));
+            set("_pendingCompleteNote", null);
+          }}
+          onCancel={()=>set("_pendingCompleteNote", null)} />
       )}
 
       <div style={{ display:"flex", gap:10, marginTop:24 }}>
@@ -2239,13 +2477,22 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
   const getClient = id => clients.find(c=>c.id===Number(id));
   const getOrg    = id => orgs.find(o=>o.id===Number(id));
 
+  const isInactiveStage = d => d.dealStage === "cancelled" || d.dealStage === "completed";
+
   const filtered = deals.filter(d=>{
     const cl = getClient(d.contactId), org = getOrg(d.orgId);
     const matchQ = !q || [d.address,cl?.fullName,org?.name,d.createdBy].some(f=>(f||"").toLowerCase().includes(q.toLowerCase()));
     const matchT = typeFilter==="all" || d.dealType===typeFilter;
     const matchS = stageFilter==="all" || d.dealStage===stageFilter;
-    const isActive = d.dealStage !== "cancelled" && d.dealStage !== "completed";
-    return matchQ && matchT && matchS && isActive;
+
+    // If explicitly filtering for completed/cancelled: show them
+    const explicitInactiveFilter = stageFilter==="completed" || stageFilter==="cancelled";
+    // If searching: show all matching deals (including completed/cancelled)
+    const isSearching = q.trim().length > 0;
+    // Default "all stages" view: hide completed and cancelled
+    const passesActiveRule = explicitInactiveFilter || isSearching || !isInactiveStage(d);
+
+    return matchQ && matchT && matchS && passesActiveRule;
   });
 
   const totalValue    = deals.reduce((s,d)=>s+(d.value||0),0);
@@ -2324,13 +2571,14 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
           const org  = getOrg(d.orgId);
           const s    = stageInfo(d.dealStage);
           const isPri = d.dealType==="Priority";
+          const isInactive = isInactiveStage(d);
 
           return (
             <div key={d.id} className="card-hover" style={{
-              background:"white", borderRadius:14, marginBottom:12, overflow:"hidden",
-              border:`1px solid ${isPri ? C.danger+"55" : C.ivoryDark}`,
-              borderLeft:`4px solid ${isPri ? C.danger : s.color}`,
-              boxShadow: isPri ? `0 2px 12px ${C.danger}18` : "0 1px 4px rgba(0,0,0,0.05)",
+              background: isInactive ? "#FFF5F5" : "white", borderRadius:14, marginBottom:12, overflow:"hidden",
+              border:`1px solid ${isInactive ? C.danger+"44" : isPri ? C.danger+"55" : C.ivoryDark}`,
+              borderLeft:`4px solid ${isInactive ? C.danger : isPri ? C.danger : s.color}`,
+              boxShadow: isPri || isInactive ? `0 2px 12px ${C.danger}18` : "0 1px 4px rgba(0,0,0,0.05)",
             }}>
               {/* Card header */}
               <div style={{ padding:"14px 16px" }}>
@@ -2344,6 +2592,11 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
                       {isPri && (
                         <span style={{ fontSize:9, letterSpacing:1, padding:"3px 8px", borderRadius:10, background:"#FEE2E2", color:C.danger, border:`1px solid ${C.danger}33`, fontWeight:"bold", whiteSpace:"nowrap" }}>
                           ● PRIORITY
+                        </span>
+                      )}
+                      {isInactive && (
+                        <span style={{ fontSize:9, letterSpacing:1, padding:"3px 8px", borderRadius:10, background:"#FEE2E2", color:C.danger, border:`1px solid ${C.danger}33`, fontWeight:"bold", whiteSpace:"nowrap" }}>
+                          ● {d.dealStage === "completed" ? "COMPLETED" : "CANCELLED"}
                         </span>
                       )}
                     </div>
@@ -2369,6 +2622,19 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
                 </div>
 
                 {d.notes && <div style={{ marginTop:10, fontSize:12, color:"#888", lineHeight:1.5, background:C.bg, borderRadius:8, padding:"8px 10px" }}>{d.notes}</div>}
+
+                {/* Active reminder notes shown on card */}
+                {(d.dealNotes||[]).filter(n=>!n.done).length>0 && (
+                  <div style={{ marginTop:10, background:"#FFFBEB", borderRadius:8, padding:"8px 10px", border:`1px solid ${C.warning}33` }}>
+                    <div style={{ fontSize:9, color:C.warning, letterSpacing:1.5, marginBottom:6 }}>📌 REMINDERS</div>
+                    {(d.dealNotes||[]).filter(n=>!n.done).map(note=>(
+                      <div key={note.id} style={{ fontSize:12, color:C.charcoal, lineHeight:1.5, marginBottom:4, paddingBottom:4, borderBottom:`1px solid ${C.warning}22` }}>
+                        · {note.text}
+                        <span style={{ fontSize:9, color:"#aaa", marginLeft:8 }}>{note.createdAt}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div style={{ display:"flex", gap:8, marginTop:12, paddingTop:12, borderTop:`1px solid ${C.ivory}` }}>
@@ -2422,17 +2688,18 @@ export default function App() {
   // Restrict workers to their allowed views
   const defaultView = user?.role === "manager" ? "dashboard" : "clients";
 
-  const activeNav = ["dashboard","clients","orgs","deals","search","settings","categories","location","lenders","form"].includes(view) ? (["categories","location","lenders","form"].includes(view) ? "categories" : view) : "categories";
+  const activeNav = ["dashboard","clients","orgs","deals","search","settings","workers","categories","location","lenders","form"].includes(view) ? (["categories","location","lenders","form"].includes(view) ? "categories" : view) : "categories";
 
   const navigate = id => {
     setSidebarOpen(false);
     // Workers cannot access dashboard or settings
-    if (user?.role !== "manager" && (id === "dashboard" || id === "settings")) return;
+    if (user?.role !== "manager" && (id === "dashboard" || id === "settings" || id === "workers")) return;
     if (id === "dashboard") setView("dashboard");
     else if (id === "clients") setView("clients");
     else if (id === "orgs") setView("orgs");
     else if (id === "deals") setView("deals");
     else if (id === "search") setView("search");
+    else if (id === "workers") setView("workers");
     else if (id === "settings") setView("settings");
     else setView("categories");
   };
@@ -2574,6 +2841,9 @@ export default function App() {
       case "settings":
         if (user.role !== "manager") { setView("clients"); return null; }
         return <SettingsView workers={workers} onAddWorker={handleAddWorker} onDeleteWorker={handleDeleteWorker} />;
+      case "workers":
+        if (user.role !== "manager") { setView("clients"); return null; }
+        return <WorkersView deals={deals} workers={workers} />;
       default:
         if (user.role !== "manager") return <ClientsView clients={clients} onAdd={() => { setEditingClient(null); setClientFormOpen(true); }}
           onEdit={handleClientEdit} onDelete={handleClientDelete} />;
@@ -2651,4 +2921,4 @@ export default function App() {
       </div>
     </>
   );
-            }
+   }
