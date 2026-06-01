@@ -967,11 +967,11 @@ function ClientsView({ clients, onAdd, onEdit, onDelete }) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a"); a.href=url; a.download="contacts.csv"; a.click(); URL.revokeObjectURL(url);
           }} className="btn-transition" style={{
-            padding:"9px 16px", background:C.success, color:"white", border:"none",
+            padding:"9px 16px", background:C.charcoal, color:C.gold, border:"none",
             borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:"bold", letterSpacing:0.5,
-            display:"flex", alignItems:"center", gap:6, whiteSpace:"nowrap", flexShrink:0,
+            whiteSpace:"nowrap", flexShrink:0,
           }}>
-            📊 Export to Excel
+            Export to Excel
           </button>
         </div>
       </div>
@@ -1672,8 +1672,9 @@ function WorkersView({ deals, workers }) {
               </div>
               <div>
                 <div style={{ fontWeight:"bold", fontSize:15, fontFamily:"Georgia, serif", color:C.charcoal }}>{w.name}</div>
-                <div style={{ fontSize:10, color:"#aaa", marginTop:2 }}>
-                  {w.count} deal{w.count!==1?"s":""} · {w.pct}% of pipeline
+                <div style={{ fontSize:10, color:"#aaa", marginTop:2, display:"flex", alignItems:"center", gap:8 }}>
+                  <span>{w.count} deal{w.count!==1?"s":""} · {w.pct}% of pipeline</span>
+                  {(() => { const worker = workers.find(wk=>wk.name===w.name); return worker?.commission ? <span style={{ padding:"2px 8px", borderRadius:8, background:`${C.warning}18`, color:C.warning, fontSize:9, fontWeight:"bold", border:`1px solid ${C.warning}33` }}>{worker.commission}% Commission</span> : null; })()}
                 </div>
               </div>
             </div>
@@ -1686,6 +1687,18 @@ function WorkersView({ deals, workers }) {
                 <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>FEE PIPELINE</div>
                 <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.warning }}>{fmt$(w.totalFees)}</div>
               </div>
+              {(() => {
+                const worker = workers.find(wk=>wk.name===w.name);
+                const commPct = parseFloat(worker?.commission);
+                if (!commPct) return null;
+                const earned = Math.round(w.totalFees * commPct / 100);
+                return (
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>COMM. EARNED ({commPct}%)</div>
+                    <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.success }}>{fmt$(earned)}</div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -1720,7 +1733,7 @@ function WorkersView({ deals, workers }) {
 // SETTINGS VIEW — Worker Management (Manager only)
 // ─────────────────────────────────────────────────────────────
 function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
-  const blankWorker = { name: "", email: "", password: "", role: "worker" };
+  const blankWorker = { name: "", email: "", password: "", role: "worker", commission: "" };
   const [form, setForm]         = useState(blankWorker);
   const [showPass, setShowPass] = useState(false);
   const [confirmDel, setConfirmDel] = useState(null);
@@ -1766,14 +1779,32 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
               </button>
             </div>
           </div>
-          {/* Role dropdown */}
-          <div>
-            <div style={fieldLabel}>ROLE</div>
-            <select value={form.role} onChange={e => setF("role", e.target.value)}
-              style={{ ...inputStyle, cursor: "pointer", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}>
-              <option value="worker">Regular Worker</option>
-              <option value="manager">Manager</option>
-            </select>
+          {/* Role + Commission side by side */}
+          <div style={{ gridColumn:"1/-1", display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+            <div>
+              <div style={fieldLabel}>ROLE</div>
+              <select value={form.role} onChange={e => setF("role", e.target.value)}
+                style={{ ...inputStyle, cursor: "pointer", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}>
+                <option value="worker">Regular Worker</option>
+                <option value="manager">Manager</option>
+              </select>
+            </div>
+            <div>
+              <div style={fieldLabel}>COMMISSION PERCENTAGE</div>
+              <div style={{ position:"relative" }}>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={form.commission}
+                  onChange={e => setF("commission", e.target.value)}
+                  placeholder="e.g. 1, 2, 2.5"
+                  style={{ ...inputStyle, paddingRight: 36 }}
+                />
+                <span style={{ position:"absolute", right:14, top:"50%", transform:"translateY(-50%)", color:"#aaa", fontSize:14, pointerEvents:"none" }}>%</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1834,6 +1865,15 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
                 }}>
                   {w.role === "manager" ? "MANAGER" : "WORKER"}
                 </span>
+                {w.commission && (
+                  <span style={{
+                    fontSize: 9, letterSpacing: 1, padding: "4px 10px", borderRadius: 10,
+                    background: `${C.warning}18`, color: C.warning,
+                    border: `1px solid ${C.warning}44`,
+                  }}>
+                    {w.commission}% COMM.
+                  </span>
+                )}
                 <button onClick={() => setConfirmDel(w)} className="btn-transition"
                   style={{ background: "none", border: "none", cursor: "pointer", color: C.danger, fontSize: 18, lineHeight: 1, padding: "2px 6px" }}>×</button>
               </div>
@@ -2087,9 +2127,9 @@ function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
           border:"none", borderRadius:12, cursor:"pointer", fontSize:12, letterSpacing:2,
         }}>+ ADD ORG</button>
       </div>
-      <input type="text" placeholder="🔍  Search organizations…" value={q} onChange={e=>setQ(e.target.value)}
-        style={{...inputStyle, marginBottom:10}} />
-      <div style={{ marginBottom:16 }}>
+      <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
+        <input type="text" placeholder="🔍  Search organizations…" value={q} onChange={e=>setQ(e.target.value)}
+          style={{...inputStyle, flex:1, marginBottom:0}} />
         <button onClick={()=>{
           const headers = ["Name","Entity Type","Owner","Loan Officer","Address","Phone","Email"];
           const rows = filtered.map(o=>[
@@ -2106,11 +2146,11 @@ function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a"); a.href=url; a.download="organizations.csv"; a.click(); URL.revokeObjectURL(url);
         }} className="btn-transition" style={{
-          padding:"9px 16px", background:C.success, color:"white", border:"none",
+          padding:"9px 16px", background:C.charcoal, color:C.gold, border:"none",
           borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:"bold", letterSpacing:0.5,
-          display:"inline-flex", alignItems:"center", gap:6,
+          whiteSpace:"nowrap", flexShrink:0,
         }}>
-          📊 Export to Excel
+          Export to Excel
         </button>
       </div>
       {filtered.length === 0
@@ -2273,6 +2313,7 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
     : blank);
   const [pendingStage, setPendingStage] = useState(null);
   const [newNote, setNewNote] = useState("");
+  const [pendingDeleteNote, setPendingDeleteNote] = useState(null);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
   const isPriority = form.dealType === "Priority";
@@ -2395,16 +2436,20 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
             <div style={{ background:C.bg, borderRadius:10, padding:"12px 14px", marginBottom:12 }}>
               {(form.dealNotes||[]).filter(n=>!n.done).map(note=>(
                 <div key={note.id} style={{ display:"flex", alignItems:"flex-start", gap:10, marginBottom:10, paddingBottom:10, borderBottom:`1px solid ${C.ivory}` }}>
-                  <button onClick={()=>set("_pendingCompleteNote", note.id)}
-                    style={{ padding:"5px 10px", background:C.success, color:"white", border:"none", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:"bold", letterSpacing:0.5, whiteSpace:"nowrap", flexShrink:0, marginTop:2 }}>
-                    Complete
-                  </button>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, color:C.charcoal, lineHeight:1.5 }}>{note.text}</div>
                     <div style={{ fontSize:9, color:"#aaa", marginTop:4 }}>{note.createdAt}</div>
                   </div>
-                  <button onClick={()=>set("dealNotes", (form.dealNotes||[]).filter(n=>n.id!==note.id))}
-                    style={{ background:"none", border:"none", cursor:"pointer", color:C.danger, fontSize:14, padding:0, flexShrink:0 }}>×</button>
+                  <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6, flexShrink:0, marginTop:2 }}>
+                    <button onClick={()=>set("_pendingCompleteNote", note.id)}
+                      style={{ padding:"5px 12px", background:C.success, color:"white", border:"none", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:"bold", letterSpacing:0.5, whiteSpace:"nowrap" }}>
+                      Complete
+                    </button>
+                    <button onClick={()=>setPendingDeleteNote(note.id)}
+                      style={{ background:"none", border:"none", cursor:"pointer", color:C.danger, fontSize:11, fontWeight:"bold", textDecoration:"underline", padding:"2px 0", whiteSpace:"nowrap", letterSpacing:0.3 }}>
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -2439,13 +2484,27 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
 
       {/* Complete note confirmation */}
       {form._pendingCompleteNote && (
-        <ConfirmModal title="Complete Note" message="Are you sure you want to mark this note as complete? It will be moved to history."
-          confirmLabel="Complete"
+        <ConfirmModal title="Complete Note"
+          message="This note will be archived from the active deal view. It will remain fully accessible in the completed notes history for reference."
+          confirmLabel="Mark Complete"
           onConfirm={()=>{
             set("dealNotes", (form.dealNotes||[]).map(n=>n.id===form._pendingCompleteNote?{...n,done:true}:n));
             set("_pendingCompleteNote", null);
           }}
           onCancel={()=>set("_pendingCompleteNote", null)} />
+      )}
+
+      {/* Delete note confirmation */}
+      {pendingDeleteNote && (
+        <ConfirmModal title="Delete Note"
+          message="Are you sure you want to permanently delete this note? This action cannot be undone."
+          confirmLabel="Delete Note"
+          danger
+          onConfirm={()=>{
+            set("dealNotes", (form.dealNotes||[]).filter(n=>n.id!==pendingDeleteNote));
+            setPendingDeleteNote(null);
+          }}
+          onCancel={()=>setPendingDeleteNote(null)} />
       )}
 
       <div style={{ display:"flex", gap:10, marginTop:24 }}>
@@ -2921,4 +2980,4 @@ export default function App() {
       </div>
     </>
   );
-   }
+                       }
