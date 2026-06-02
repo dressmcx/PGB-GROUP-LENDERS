@@ -795,6 +795,418 @@ function DealPipeline({ currentStage }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// FILE MANAGER — desktop-style, folders + files
+// ─────────────────────────────────────────────────────────────
+function ContactFileManager({ value, onChange }) {
+  // value: { folders: [{id, name, files:[{id,name,type,size,data,uploadedAt}]}], rootFiles:[...] }
+  const init = value || { folders: [], rootFiles: [] };
+  const [fs, setFs]                       = useState(init);
+  const [activeFolderId, setActiveFolderId] = useState(null); // null = root
+  const [renamingId, setRenamingId]        = useState(null);
+  const [renameVal, setRenameVal]          = useState("");
+  const [newFolderMode, setNewFolderMode]  = useState(false);
+  const [newFolderName, setNewFolderName]  = useState("");
+  const [previewFile, setPreviewFile]      = useState(null);
+  const [confirmDel, setConfirmDel]        = useState(null); // {type:'folder'|'file', id, folderId?}
+  const [draggingOver, setDraggingOver]    = useState(false);
+  const uploadRef                          = useRef();
+  const renameRef                          = useRef();
+
+  // Sync up to parent whenever fs changes
+  useEffect(() => { onChange(fs); }, [fs]);
+
+  // Auto-focus rename input
+  useEffect(() => { if (renamingId && renameRef.current) renameRef.current.focus(); }, [renamingId]);
+
+  const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+
+  const activeFolder = activeFolderId ? fs.folders.find(f => f.id === activeFolderId) : null;
+  const currentFiles = activeFolder ? activeFolder.files : fs.rootFiles;
+
+  const updateFs = updater => setFs(prev => {
+    const next = updater({ ...prev, folders: prev.folders.map(f => ({ ...f, files: [...f.files] })), rootFiles: [...prev.rootFiles] });
+    return next;
+  });
+
+  // ── Folder ops ─────────────────────────────────────────────
+  const createFolder = () => {
+    const name = newFolderName.trim() || "New Folder";
+    updateFs(prev => ({ ...prev, folders: [...prev.folders, { id: uid(), name, files: [] }] }));
+    setNewFolderMode(false); setNewFolderName("");
+  };
+
+  const deleteFolder = id => {
+    updateFs(prev => ({ ...prev, folders: prev.folders.filter(f => f.id !== id) }));
+    if (activeFolderId === id) setActiveFolderId(null);
+  };
+
+  const renameFolder = (id, name) => {
+    updateFs(prev => ({ ...prev, folders: prev.folders.map(f => f.id === id ? { ...f, name } : f) }));
+    setRenamingId(null);
+  };
+
+  // ── File ops ───────────────────────────────────────────────
+  const addFiles = files => {
+    const readers = Array.from(files).map(file => new Promise(res => {
+      const reader = new FileReader();
+      reader.onload = ev => res({ id: uid(), name: file.name, type: file.type, size: file.size, data: ev.target.result, uploadedAt: new Date().toISOString() });
+      reader.readAsDataURL(file);
+    }));
+    Promise.all(readers).then(newFiles => {
+      updateFs(prev => {
+        if (activeFolderId) {
+          return { ...prev, folders: prev.folders.map(f => f.id === activeFolderId ? { ...f, files: [...f.files, ...newFiles] } : f) };
+        }
+        return { ...prev, rootFiles: [...prev.rootFiles, ...newFiles] };
+      });
+    });
+  };
+
+  const deleteFile = (fileId, folderId) => {
+    updateFs(prev => {
+      if (folderId) {
+        return { ...prev, folders: prev.folders.map(f => f.id === folderId ? { ...f, files: f.files.filter(fi => fi.id !== fileId) } : f) };
+      }
+      return { ...prev, rootFiles: prev.rootFiles.filter(fi => fi.id !== fileId) };
+    });
+  };
+
+  const renameFile = (fileId, folderId, name) => {
+    updateFs(prev => {
+      if (folderId) {
+        return { ...prev, folders: prev.folders.map(f => f.id === folderId ? { ...f, files: f.files.map(fi => fi.id === fileId ? { ...fi, name } : fi) } : f) };
+      }
+      return { ...prev, rootFiles: prev.rootFiles.map(fi => fi.id === fileId ? { ...fi, name } : fi) };
+    });
+    setRenamingId(null);
+  };
+
+  // ── Drag & drop ────────────────────────────────────────────
+  const handleDrop = e => {
+    e.preventDefault(); setDraggingOver(false);
+    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+  };
+
+  // ── Helpers ────────────────────────────────────────────────
+  const fileIcon = file => {
+    if (!file.type) return "📎";
+    if (file.type.startsWith("image/")) return "🖼️";
+    if (file.type === "application/pdf") return "📄";
+    if (file.type.includes("word")) return "📝";
+    if (file.type.includes("sheet") || file.type.includes("excel")) return "📊";
+    if (file.type.startsWith("video/")) return "🎬";
+    if (file.type.startsWith("audio/")) return "🎵";
+    if (file.type.includes("zip") || file.type.includes("compress")) return "🗜️";
+    return "📎";
+  };
+
+  const fmtSize = bytes => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes/1024).toFixed(1)} KB`;
+    return `${(bytes/1048576).toFixed(1)} MB`;
+  };
+
+  const isImage = f => f.type?.startsWith("image/");
+  const isPdf   = f => f.type === "application/pdf";
+
+  const totalCount = fs.folders.reduce((acc, f) => acc + f.files.length, 0) + fs.rootFiles.length;
+
+  // ── Styles ─────────────────────────────────────────────────
+  const S = {
+    panel: {
+      border: `1.5px solid ${C.ivoryDark}`,
+      borderRadius: 12,
+      overflow: "hidden",
+      background: "#fafaf8",
+      fontFamily: "Georgia, serif",
+    },
+    toolbar: {
+      display: "flex", alignItems: "center", gap: 8,
+      padding: "10px 14px",
+      background: C.charcoal,
+      borderBottom: `1px solid ${C.goldDark}33`,
+      flexWrap: "wrap",
+    },
+    toolbarTitle: {
+      color: C.gold, fontSize: 11, letterSpacing: 2, fontWeight: "bold", flex: 1,
+    },
+    toolBtn: {
+      padding: "6px 12px", background: `${C.goldDark}22`, border: `1px solid ${C.goldDark}44`,
+      color: C.gold, borderRadius: 7, cursor: "pointer", fontSize: 11, letterSpacing: 0.5,
+      display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
+    },
+    breadcrumb: {
+      display: "flex", alignItems: "center", gap: 6,
+      padding: "8px 14px", background: "#f0ede5",
+      borderBottom: `1px solid ${C.ivoryDark}`,
+      fontSize: 11,
+    },
+    crumbBtn: {
+      background: "none", border: "none", cursor: "pointer", color: C.goldDark,
+      fontSize: 11, fontFamily: "Georgia, serif", padding: "2px 4px", borderRadius: 4,
+    },
+    body: {
+      minHeight: 160, padding: "12px 14px",
+    },
+    dropZone: {
+      border: `2px dashed ${draggingOver ? C.goldDark : C.ivoryDark}`,
+      borderRadius: 10, padding: "24px 16px",
+      display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+      background: draggingOver ? `${C.goldDark}08` : "transparent",
+      transition: "all 0.18s", cursor: "pointer", marginTop: 8,
+    },
+    folderRow: active => ({
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "9px 12px", borderRadius: 9,
+      background: active ? `${C.goldDark}18` : "white",
+      border: `1px solid ${active ? C.goldDark : C.ivoryDark}`,
+      marginBottom: 6, cursor: "pointer",
+      transition: "all 0.15s",
+    }),
+    fileRow: {
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "8px 12px", borderRadius: 9,
+      background: "white", border: `1px solid ${C.ivoryDark}`,
+      marginBottom: 6, transition: "all 0.15s",
+    },
+    iconBtn: (color="#888") => ({
+      background: "none", border: "none", cursor: "pointer",
+      color, fontSize: 14, padding: "3px 5px", borderRadius: 5,
+      lineHeight: 1, flexShrink: 0,
+    }),
+  };
+
+  return (
+    <div style={{ gridColumn: "1/-1" }}>
+      <div style={{ ...fieldLabel, marginBottom: 8 }}>
+        FILES & DOCUMENTS
+        {totalCount > 0 && <span style={{ color: C.goldDark, marginLeft: 8 }}>({totalCount} item{totalCount !== 1 ? "s" : ""})</span>}
+      </div>
+
+      <div style={S.panel}>
+        {/* Toolbar */}
+        <div style={S.toolbar}>
+          <span style={S.toolbarTitle}>📁 FILE MANAGER</span>
+          <button className="btn-transition" style={S.toolBtn} onClick={() => { setNewFolderMode(true); setNewFolderName(""); }}>
+            <span>➕</span> New Folder
+          </button>
+          <button className="btn-transition" style={S.toolBtn} onClick={() => uploadRef.current?.click()}>
+            <span>⬆</span> Upload
+          </button>
+          <input ref={uploadRef} type="file" multiple accept="*/*" style={{ display: "none" }}
+            onChange={e => { if (e.target.files?.length) { addFiles(e.target.files); e.target.value = ""; } }} />
+        </div>
+
+        {/* Breadcrumb */}
+        <div style={S.breadcrumb}>
+          <button style={S.crumbBtn} onClick={() => setActiveFolderId(null)}>🏠 Root</button>
+          {activeFolder && (
+            <>
+              <span style={{ color: "#bbb" }}>›</span>
+              <span style={{ color: C.charcoal, fontSize: 11 }}>📁 {activeFolder.name}</span>
+            </>
+          )}
+          <span style={{ marginLeft: "auto", color: "#aaa", fontSize: 10 }}>
+            {currentFiles.length} file{currentFiles.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+
+        {/* Body */}
+        <div style={S.body}>
+          {/* New folder input */}
+          {newFolderMode && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
+              <span style={{ fontSize: 18 }}>📁</span>
+              <input
+                autoFocus
+                value={newFolderName}
+                onChange={e => setNewFolderName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") createFolder(); if (e.key === "Escape") setNewFolderMode(false); }}
+                placeholder="Folder name…"
+                style={{ ...inputStyle, flex: 1, padding: "8px 12px", fontSize: 13 }}
+              />
+              <button className="btn-transition" onClick={createFolder}
+                style={{ padding: "8px 14px", background: C.goldDark, color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12 }}>
+                Create
+              </button>
+              <button className="btn-transition" onClick={() => setNewFolderMode(false)}
+                style={{ padding: "8px 12px", background: "white", border: `1px solid ${C.ivoryDark}`, borderRadius: 8, cursor: "pointer", fontSize: 12, color: "#888" }}>
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Folders (only visible at root) */}
+          {!activeFolderId && fs.folders.map(folder => (
+            <div key={folder.id} style={S.folderRow(false)}>
+              <span style={{ fontSize: 18, flexShrink: 0 }}>📁</span>
+              {renamingId === folder.id ? (
+                <input
+                  ref={renameRef}
+                  value={renameVal}
+                  onChange={e => setRenameVal(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") renameFolder(folder.id, renameVal.trim() || folder.name); if (e.key === "Escape") setRenamingId(null); }}
+                  onBlur={() => renameFolder(folder.id, renameVal.trim() || folder.name)}
+                  style={{ ...inputStyle, flex: 1, padding: "5px 10px", fontSize: 13 }}
+                  onClick={e => e.stopPropagation()}
+                />
+              ) : (
+                <span onClick={() => setActiveFolderId(folder.id)}
+                  style={{ flex: 1, fontSize: 13, color: C.charcoal, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {folder.name}
+                </span>
+              )}
+              <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", marginRight: 4 }}>
+                {folder.files.length} item{folder.files.length !== 1 ? "s" : ""}
+              </span>
+              {renamingId !== folder.id && (
+                <>
+                  <button title="Open" style={S.iconBtn(C.goldDark)} onClick={() => setActiveFolderId(folder.id)}>›</button>
+                  <button title="Rename" style={S.iconBtn("#888")} onClick={e => { e.stopPropagation(); setRenamingId(folder.id); setRenameVal(folder.name); }}>✏️</button>
+                  <button title="Delete folder" style={S.iconBtn(C.danger)} onClick={e => { e.stopPropagation(); setConfirmDel({ type: "folder", id: folder.id }); }}>🗑</button>
+                </>
+              )}
+            </div>
+          ))}
+
+          {/* Files in current location */}
+          {currentFiles.map(file => (
+            <div key={file.id} style={S.fileRow}>
+              <span style={{ fontSize: 18, flexShrink: 0 }}>{fileIcon(file)}</span>
+              {renamingId === file.id ? (
+                <input
+                  ref={renameRef}
+                  value={renameVal}
+                  onChange={e => setRenameVal(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") renameFile(file.id, activeFolderId, renameVal.trim() || file.name);
+                    if (e.key === "Escape") setRenamingId(null);
+                  }}
+                  onBlur={() => renameFile(file.id, activeFolderId, renameVal.trim() || file.name)}
+                  style={{ ...inputStyle, flex: 1, padding: "5px 10px", fontSize: 13 }}
+                  onClick={e => e.stopPropagation()}
+                />
+              ) : (
+                <span style={{ flex: 1, fontSize: 13, color: C.charcoal, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  title={file.name}>
+                  {file.name}
+                </span>
+              )}
+              <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", marginRight: 4 }}>{fmtSize(file.size)}</span>
+              {renamingId !== file.id && (
+                <>
+                  {(isImage(file) || isPdf(file)) && (
+                    <button title="Preview" style={S.iconBtn(C.info)} onClick={() => setPreviewFile(file)}>👁</button>
+                  )}
+                  <button title="Download" style={S.iconBtn("#888")} onClick={() => { const a = document.createElement("a"); a.href = file.data; a.download = file.name; a.click(); }}>⬇</button>
+                  <button title="Rename" style={S.iconBtn("#888")} onClick={() => { setRenamingId(file.id); setRenameVal(file.name); }}>✏️</button>
+                  <button title="Delete" style={S.iconBtn(C.danger)} onClick={() => setConfirmDel({ type: "file", id: file.id, folderId: activeFolderId })}>🗑</button>
+                </>
+              )}
+            </div>
+          ))}
+
+          {/* Empty state + drop zone */}
+          {currentFiles.length === 0 && !activeFolderId && fs.folders.length === 0 && !newFolderMode && (
+            <div
+              style={S.dropZone}
+              onDragOver={e => { e.preventDefault(); setDraggingOver(true); }}
+              onDragLeave={() => setDraggingOver(false)}
+              onDrop={handleDrop}
+              onClick={() => uploadRef.current?.click()}
+            >
+              <span style={{ fontSize: 32 }}>📂</span>
+              <span style={{ fontSize: 13, color: "#aaa" }}>Drop files here or click Upload</span>
+              <span style={{ fontSize: 11, color: "#ccc" }}>Images, PDFs, documents & more</span>
+            </div>
+          )}
+
+          {currentFiles.length === 0 && (activeFolderId || fs.folders.length > 0 || newFolderMode) && (
+            <div
+              style={{ ...S.dropZone, marginTop: 4 }}
+              onDragOver={e => { e.preventDefault(); setDraggingOver(true); }}
+              onDragLeave={() => setDraggingOver(false)}
+              onDrop={handleDrop}
+              onClick={() => uploadRef.current?.click()}
+            >
+              <span style={{ fontSize: 24 }}>⬆</span>
+              <span style={{ fontSize: 12, color: "#aaa" }}>
+                {activeFolderId ? `Drop files into "${activeFolder?.name}"` : "Drop files or click Upload"}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Delete confirm */}
+      {confirmDel && (
+        <ConfirmModal
+          title={confirmDel.type === "folder" ? "Delete Folder" : "Delete File"}
+          message={confirmDel.type === "folder"
+            ? "This will permanently delete the folder and all its files."
+            : "This file will be permanently removed."}
+          confirmLabel="Delete"
+          danger
+          onConfirm={() => {
+            if (confirmDel.type === "folder") deleteFolder(confirmDel.id);
+            else deleteFile(confirmDel.id, confirmDel.folderId);
+            setConfirmDel(null);
+          }}
+          onCancel={() => setConfirmDel(null)}
+        />
+      )}
+
+      {/* File preview modal */}
+      {previewFile && (
+        <div className="anim-fade" style={{
+          position: "fixed", inset: 0, zIndex: 3100,
+          background: "rgba(0,0,0,0.86)", backdropFilter: "blur(4px)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          padding: 16,
+        }} onClick={e => e.target === e.currentTarget && setPreviewFile(null)}>
+          <div className="anim-fade-up" style={{
+            background: "#111", borderRadius: 14, overflow: "hidden",
+            width: "100%", maxWidth: 860, maxHeight: "90vh",
+            display: "flex", flexDirection: "column",
+            boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+            border: `1px solid ${C.goldDark}33`,
+          }}>
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "13px 18px", background: "#1a1a1a", borderBottom: `1px solid ${C.goldDark}22`,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 16 }}>{fileIcon(previewFile)}</span>
+                <span style={{ color: C.gold, fontSize: 13, fontFamily: "Georgia, serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 320 }}>{previewFile.name}</span>
+                <span style={{ color: "#555", fontSize: 11 }}>{fmtSize(previewFile.size)}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => { const a = document.createElement("a"); a.href = previewFile.data; a.download = previewFile.name; a.click(); }}
+                  style={{ padding: "6px 13px", background: `${C.goldDark}22`, color: C.gold, border: `1px solid ${C.goldDark}44`, borderRadius: 7, cursor: "pointer", fontSize: 11 }}>
+                  ⬇ Download
+                </button>
+                <button onClick={() => setPreviewFile(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#666", fontSize: 22, lineHeight: 1 }}>×</button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflow: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, minHeight: 0 }}>
+              {isPdf(previewFile) ? (
+                <iframe src={previewFile.data} title={previewFile.name}
+                  style={{ width: "100%", height: "72vh", border: "none", borderRadius: 8, background: "white" }} />
+              ) : (
+                <img src={previewFile.data} alt={previewFile.name}
+                  style={{ maxWidth: "100%", maxHeight: "72vh", borderRadius: 8, objectFit: "contain", boxShadow: "0 4px 24px rgba(0,0,0,0.4)" }} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // CONTACT FORM — multi-phone, multi-email
 // ─────────────────────────────────────────────────────────────
 function ClientForm({ initial, onSave, onCancel }) {
@@ -802,11 +1214,13 @@ function ClientForm({ initial, onSave, onCancel }) {
     fullName: "", address: "", notes: "",
     phones: [{ number: "", tag: "Work" }],
     emails: [""],
+    files: { folders: [], rootFiles: [] },
   };
   const normalize = c => ({
     ...c,
     phones: c.phones?.length ? c.phones : (c.phone ? [{ number: c.phone, tag: "Work" }] : [{ number: "", tag: "Work" }]),
     emails: c.emails?.length ? c.emails : (c.email ? [c.email] : [""]),
+    files: c.files || { folders: [], rootFiles: [] },
   });
   const [form, setForm] = useState(initial ? normalize(initial) : blank);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -830,6 +1244,7 @@ function ClientForm({ initial, onSave, onCancel }) {
         <AddressField label="Address" value={form.address} onChange={v => set("address", v)} span2 />
         <MultiPhoneField phones={form.phones} onChange={v => set("phones", v)} />
         <MultiEmailField emails={form.emails} onChange={v => set("emails", v)} />
+        <ContactFileManager value={form.files} onChange={v => set("files", v)} />
         <FormField label="Notes" value={form.notes} onChange={v => set("notes", v)} textarea span2 />
       </div>
       <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
@@ -2980,4 +3395,4 @@ export default function App() {
       </div>
     </>
   );
-                       }
+      }
