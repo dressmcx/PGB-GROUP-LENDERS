@@ -1244,8 +1244,8 @@ function ClientForm({ initial, onSave, onCancel }) {
         <AddressField label="Address" value={form.address} onChange={v => set("address", v)} span2 />
         <MultiPhoneField phones={form.phones} onChange={v => set("phones", v)} />
         <MultiEmailField emails={form.emails} onChange={v => set("emails", v)} />
-        <ContactFileManager value={form.files} onChange={v => set("files", v)} />
         <FormField label="Notes" value={form.notes} onChange={v => set("notes", v)} textarea span2 />
+        <ContactFileManager value={form.files} onChange={v => set("files", v)} />
       </div>
       <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
         <button onClick={onCancel} className="btn-transition" style={{ flex:1, padding:"14px", background:"white", border:`1.5px solid ${C.ivoryDark}`, borderRadius:12, cursor:"pointer", fontSize:13, color:C.charcoal }}>Cancel</button>
@@ -2145,9 +2145,106 @@ function WorkersView({ deals, workers }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// WORKER FORM — for adding and editing workers
+// ─────────────────────────────────────────────────────────────
+function WorkerForm({ initial, onSave, onCancel, existingEmails }) {
+  const blank = { name: "", email: "", password: "", role: "worker", commission: "" };
+  const [form, setForm] = useState(initial ? { ...initial } : blank);
+  const [showPass, setShowPass] = useState(false);
+  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = () => {
+    if (!form.name.trim())     { alert("Name is required."); return; }
+    if (!form.email.trim())    { alert("Email is required."); return; }
+    if (!form.password.trim()) { alert("Password is required."); return; }
+    // Check if email already exists (but allow same email if editing same worker)
+    if (existingEmails.filter(e => e !== initial?.email).includes(form.email.toLowerCase())) {
+      alert("A worker with this email already exists."); return;
+    }
+    onSave({ ...form, id: initial?.id || Date.now() });
+  };
+
+  return (
+    <div style={{ padding: "24px 20px 40px" }}>
+      <div style={{ width: 36, height: 4, background: C.ivoryDark, borderRadius: 2, margin: "0 auto 20px" }} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <h2 style={{ margin: 0, fontSize: 20, fontFamily: "Georgia, serif", fontWeight: "normal", color: C.charcoal }}>
+          {initial ? "Edit Team Member" : "Add Team Member"}
+        </h2>
+        <button onClick={onCancel} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#aaa" }}>×</button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <FormField label="Full Name" value={form.name} onChange={v => setF("name", v)} required span2 />
+        <FormField label="Email Address" type="email" value={form.email} onChange={v => setF("email", v)} required />
+        
+        {/* Password field with toggle */}
+        <div>
+          <div style={fieldLabel}>PASSWORD <span style={{ color: C.danger }}>*</span></div>
+          <div style={{ position: "relative" }}>
+            <input
+              type={showPass ? "text" : "password"}
+              value={form.password}
+              onChange={e => setF("password", e.target.value)}
+              style={{ ...inputStyle, paddingRight: 44 }}
+            />
+            <button type="button" onClick={() => setShowPass(v => !v)}
+              style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aaa", padding: 0, display: "flex", alignItems: "center" }}>
+              <EyeIcon open={showPass} />
+            </button>
+          </div>
+        </div>
+
+        {/* Role + Commission side by side */}
+        <div style={{ gridColumn:"1/-1", display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+          <div>
+            <div style={fieldLabel}>ROLE</div>
+            <select value={form.role} onChange={e => setF("role", e.target.value)}
+              style={{ ...inputStyle, cursor: "pointer", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}>
+              <option value="worker">Regular Worker</option>
+              <option value="manager">Manager</option>
+            </select>
+          </div>
+          <div>
+            <div style={fieldLabel}>COMMISSION PERCENTAGE</div>
+            <div style={{ position:"relative" }}>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={form.commission}
+                onChange={e => setF("commission", e.target.value)}
+                placeholder="e.g. 1, 2, 2.5"
+                style={{ ...inputStyle, paddingRight: 36 }}
+              />
+              <span style={{ position:"absolute", right:14, top:"50%", transform:"translateY(-50%)", color:"#aaa", fontSize:14, pointerEvents:"none" }}>%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Role description */}
+      <div style={{ marginTop: 14, background: C.bg, borderRadius: 10, padding: "12px 14px", fontSize: 12, color: "#777", lineHeight: 1.7 }}>
+        {form.role === "manager"
+          ? "✦ Manager — Full access: Dashboard, financial data, lenders, clients, settings & worker management."
+          : "✦ Regular Worker — Restricted access: Can view, add & manage Lenders and Clients only. No Dashboard or admin access."}
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+        <button onClick={onCancel} className="btn-transition" style={{ flex:1, padding:"14px", background:"white", border:`1.5px solid ${C.ivoryDark}`, borderRadius:12, cursor:"pointer", fontSize:13, color:C.charcoal }}>Cancel</button>
+        <button onClick={handleSave} className="btn-transition" style={{ flex:2, padding:"14px", background:C.goldDark, color:"white", border:"none", borderRadius:12, cursor:"pointer", fontSize:13, fontWeight:"bold", letterSpacing:1 }}>
+          {initial ? "SAVE CHANGES" : "ADD WORKER"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // SETTINGS VIEW — Worker Management (Manager only)
 // ─────────────────────────────────────────────────────────────
-function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
+function SettingsView({ workers, onAddWorker, onEditWorker, onDeleteWorker }) {
   const blankWorker = { name: "", email: "", password: "", role: "worker", commission: "" };
   const [form, setForm]         = useState(blankWorker);
   const [showPass, setShowPass] = useState(false);
@@ -2321,7 +2418,7 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
                       overflow: "hidden",
                       marginTop: 6,
                     }}>
-                      <button onClick={() => { /* Edit handler */ setOpenMenuId(null); }}
+                      <button onClick={() => { onEditWorker(w); setOpenMenuId(null); }}
                         style={{
                           width: "100%", padding: "10px 16px", background: "none", border: "none",
                           cursor: "pointer", fontSize: 13, color: C.charcoal,
@@ -2518,8 +2615,10 @@ function OrgForm({ initial, clients, onSave, onCancel, onAddNewContact }) {
     mgmtContact:"", assistance:"", loanOfficer:"", address:"",
     entityType:"LLC",
     phones:[{ number:"", tag:"Work" }], emails:[""],
+    notes:"",
+    files: { folders: [], rootFiles: [] },
   };
-  const [form, setForm] = useState(initial ? {...initial} : blank);
+  const [form, setForm] = useState(initial ? {...initial, notes: initial.notes || "", files: initial.files || { folders: [], rootFiles: [] }} : blank);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
   // "Add New Contact" inline: saves field key + prefill name, then hands off
@@ -2561,6 +2660,8 @@ function OrgForm({ initial, clients, onSave, onCancel, onAddNewContact }) {
         <AddressField label="Address" value={form.address} onChange={v=>set("address",v)} span2 />
         <MultiPhoneField phones={form.phones} onChange={v=>set("phones",v)} />
         <MultiEmailField emails={form.emails} onChange={v=>set("emails",v)} />
+        <FormField label="Notes" value={form.notes} onChange={v=>set("notes",v)} textarea span2 />
+        <ContactFileManager value={form.files} onChange={v=>set("files",v)} />
       </div>
       <div style={{ display:"flex", gap:10, marginTop:24 }}>
         <button onClick={onCancel} className="btn-transition" style={{
@@ -3214,6 +3315,8 @@ export default function App() {
   const [editingOrg,        setEditingOrg]       = useState(null);
   const [dealFormOpen,      setDealFormOpen]     = useState(false);
   const [editingDeal,       setEditingDeal]      = useState(null);
+  const [workerFormOpen,    setWorkerFormOpen]   = useState(false);
+  const [editingWorker,     setEditingWorker]    = useState(null);
   // Inline "Add New Contact" — from OrgForm or DealForm
   const [addContactInline,  setAddContactInline] = useState(null);
   // Inline "Add New Org" — from DealForm
@@ -3296,6 +3399,15 @@ export default function App() {
   // Worker handlers
   const handleAddWorker    = w  => setWorkers(ws => [...ws, w]);
   const handleDeleteWorker = id => setWorkers(ws => ws.filter(w => w.id !== id));
+  const handleEditWorker   = w  => { setEditingWorker(w); setWorkerFormOpen(true); };
+  const handleSaveWorker   = form => {
+    if (editingWorker) {
+      setWorkers(ws => ws.map(w => w.id === editingWorker.id ? { ...form, id: editingWorker.id } : w));
+    } else {
+      setWorkers(ws => [...ws, { ...form, id: Date.now() }]);
+    }
+    setWorkerFormOpen(false); setEditingWorker(null);
+  };
 
   // Org handlers
   const handleOrgSave = form => {
@@ -3374,7 +3486,7 @@ export default function App() {
           onEdit={handleDealEdit} onDelete={handleDealDelete} onStageChange={(id,stage)=>setDeals(ds=>ds.map(d=>d.id===id?{...d,dealStage:stage}:d))} />;
       case "settings":
         if (user.role !== "manager") { setView("clients"); return null; }
-        return <SettingsView workers={workers} onAddWorker={handleAddWorker} onDeleteWorker={handleDeleteWorker} />;
+        return <SettingsView workers={workers} onAddWorker={handleAddWorker} onEditWorker={handleEditWorker} onDeleteWorker={handleDeleteWorker} />;
       case "workers":
         if (user.role !== "manager") { setView("clients"); return null; }
         return <WorkersView deals={deals} workers={workers} />;
@@ -3452,7 +3564,17 @@ export default function App() {
             />
           </Modal>
         )}
+        {workerFormOpen && (
+          <Modal onClose={() => { setWorkerFormOpen(false); setEditingWorker(null); }} maxWidth={640}>
+            <WorkerForm
+              initial={editingWorker}
+              existingEmails={workers.map(w => w.email.toLowerCase())}
+              onSave={handleSaveWorker}
+              onCancel={() => { setWorkerFormOpen(false); setEditingWorker(null); }}
+            />
+          </Modal>
+        )}
       </div>
     </>
   );
-}
+   }
