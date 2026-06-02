@@ -1382,7 +1382,7 @@ function ClientsView({ clients, onAdd, onEdit, onDelete }) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a"); a.href=url; a.download="contacts.csv"; a.click(); URL.revokeObjectURL(url);
           }} className="btn-transition" style={{
-            padding:"9px 16px", background:C.charcoal, color:C.gold, border:"none",
+            padding:"9px 16px", background:C.success, color:"white", border:"none",
             borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:"bold", letterSpacing:0.5,
             whiteSpace:"nowrap", flexShrink:0,
           }}>
@@ -2152,6 +2152,8 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
   const [form, setForm]         = useState(blankWorker);
   const [showPass, setShowPass] = useState(false);
   const [confirmDel, setConfirmDel] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const menuRef = useRef();
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleAdd = () => {
@@ -2164,6 +2166,17 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
     onAddWorker({ ...form, id: Date.now() });
     setForm(blankWorker);
   };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = e => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <div style={{ padding: "20px 16px 90px", maxWidth: 700, margin: "0 auto", width: "100%" }}>
@@ -2289,8 +2302,51 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
                     {w.commission}% COMM.
                   </span>
                 )}
-                <button onClick={() => setConfirmDel(w)} className="btn-transition"
-                  style={{ background: "none", border: "none", cursor: "pointer", color: C.danger, fontSize: 18, lineHeight: 1, padding: "2px 6px" }}>×</button>
+                <div style={{ position: "relative" }} ref={openMenuId === w.id ? menuRef : null}>
+                  <button onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)} className="btn-transition"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#888", fontSize: 18, lineHeight: 1, padding: "2px 6px", fontWeight: "bold" }}>
+                    ···
+                  </button>
+                  {openMenuId === w.id && (
+                    <div className="anim-fade" style={{
+                      position: "absolute",
+                      top: "100%",
+                      right: 0,
+                      background: "white",
+                      border: `1px solid ${C.ivoryDark}`,
+                      borderRadius: 8,
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                      zIndex: 10000,
+                      minWidth: 140,
+                      overflow: "hidden",
+                      marginTop: 6,
+                    }}>
+                      <button onClick={() => { /* Edit handler */ setOpenMenuId(null); }}
+                        style={{
+                          width: "100%", padding: "10px 16px", background: "none", border: "none",
+                          cursor: "pointer", fontSize: 13, color: C.charcoal,
+                          textAlign: "left", transition: "all 0.15s",
+                          borderBottom: `1px solid ${C.ivory}`,
+                        }}
+                        onMouseEnter={e => e.target.style.background = C.bg}
+                        onMouseLeave={e => e.target.style.background = "none"}
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button onClick={() => { setConfirmDel(w); setOpenMenuId(null); }}
+                        style={{
+                          width: "100%", padding: "10px 16px", background: "none", border: "none",
+                          cursor: "pointer", fontSize: 13, color: C.danger,
+                          textAlign: "left", transition: "all 0.15s",
+                        }}
+                        onMouseEnter={e => e.target.style.background = "#FEF0EF"}
+                        onMouseLeave={e => e.target.style.background = "none"}
+                      >
+                        🗑 Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))
@@ -2561,7 +2617,7 @@ function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a"); a.href=url; a.download="organizations.csv"; a.click(); URL.revokeObjectURL(url);
         }} className="btn-transition" style={{
-          padding:"9px 16px", background:C.charcoal, color:C.gold, border:"none",
+          padding:"9px 16px", background:C.success, color:"white", border:"none",
           borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:"bold", letterSpacing:0.5,
           whiteSpace:"nowrap", flexShrink:0,
         }}>
@@ -2721,10 +2777,11 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
     visibleTo:"all",
     notes:"",
     dealNotes: [],
+    dealFiles: { folders: [], rootFiles: [] },
     _pendingCompleteNote: null,
   };
   const [form, setForm] = useState(initial
-    ? {...initial, paymentAmount:initial.paymentAmount||"", value:initial.value||"", createdBy:initial.createdBy||currentUser?.name||"", dealNotes:initial.dealNotes||[]}
+    ? {...initial, paymentAmount:initial.paymentAmount||"", value:initial.value||"", createdBy:initial.createdBy||currentUser?.name||"", dealNotes:initial.dealNotes||[], dealFiles:initial.dealFiles||{ folders: [], rootFiles: [] }}
     : blank);
   const [pendingStage, setPendingStage] = useState(null);
   const [newNote, setNewNote] = useState("");
@@ -2887,6 +2944,9 @@ function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAdd
             </div>
           )}
         </div>
+
+        {/* Deal File Manager — same as Contact File Manager */}
+        <ContactFileManager value={form.dealFiles || { folders: [], rootFiles: [] }} onChange={v=>set("dealFiles",v)} />
       </div>
 
       {/* Stage change confirmation */}
@@ -3395,4 +3455,4 @@ export default function App() {
       </div>
     </>
   );
-      }
+}
