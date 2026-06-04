@@ -1874,4 +1874,731 @@ function SearchView({ lenders, onEdit, onDelete }) {
           <select value={catFilter} onChange={e => setCat(e.target.value)}
             style={{ flex: 1, minWidth: 130, padding: "9px 12px", background: C.bg, border: `1.5px solid ${C.ivoryDark}`, borderRadius: 8, fontSize: 12, cursor: "pointer" }}>
             <option value="All">All Categories</option>
-            {CATEGORIES.map(c => <opt…
+            
+            {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <select value={locFilter} onChange={e => setLoc(e.target.value)}
+            style={{ flex: 1, minWidth: 130, padding: "9px 12px", background: C.bg, border: `1.5px solid ${C.ivoryDark}`, borderRadius: 8, fontSize: 12, cursor: "pointer" }}>
+            {LOCATIONS.map(l => <option key={l}>{l}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{ color: "#aaa", fontSize: 11, marginBottom: 12 }}>{results.length} result{results.length !== 1 ? "s" : ""}</div>
+      {results.map(l => <LenderCard key={l.id} lender={l} onEdit={onEdit} onDelete={onDelete} />)}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// LENDER FORM
+// ─────────────────────────────────────────────────────────────
+function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCancel }) {
+  const initCategory = initial?.category || defaultCategory || "Permanent";
+  const [form, setForm] = useState(initial ? {
+    ...initial,
+    termsFileData: initial.termsFileData || null,
+    termsFileName: initial.termsFileName || "",
+  } : {
+    category: initCategory,
+    location: defaultLocation === "All Locations" ? "" : (defaultLocation || ""),
+    address: "",
+    bankName: "", contactName: "", email: "", phone: "",
+    assistantPhone: "", assistantName: "", assistanceEmail: "",
+    lenderType: getLenderTypes(initCategory)[0],
+    termsFileName: "",
+    termsFileData: null,
+    notes: "", rate: "", minLoan: "", maxLoan: "",
+  });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // When category changes, reset lenderType to first valid option for new category
+  const handleCategoryChange = newCat => {
+    const types = getLenderTypes(newCat);
+    setForm(f => ({ ...f, category: newCat, lenderType: types[0] }));
+  };
+
+  const availableTypes = getLenderTypes(form.category);
+
+  return (
+    <div style={{ padding: "20px 16px 90px", maxWidth: 700, margin: "0 auto", width: "100%" }}>
+      <h2 style={{ color: C.charcoal, margin: "0 0 24px", fontSize: 22, fontFamily: "Georgia, serif", fontWeight: "normal" }}>
+        {initial ? "Edit Lender" : "Add New Lender"}
+      </h2>
+      <div style={{ background: "white", border: `1px solid ${C.ivoryDark}`, borderRadius: 14, padding: "24px 20px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <FormField label="Bank / Institution Name" value={form.bankName} onChange={v => set("bankName", v)} required span2 />
+          <FormField label="Contact Name" value={form.contactName} onChange={v => set("contactName", v)} />
+          <FormField label="Email" type="email" value={form.email} onChange={v => set("email", v)} />
+          <FormField label="Phone" value={form.phone} onChange={v => set("phone", v)} />
+          <FormField label="Assistant Name" value={form.assistantName} onChange={v => set("assistantName", v)} />
+          <FormField label="Assistant Phone" value={form.assistantPhone} onChange={v => set("assistantPhone", v)} />
+          <FormField label="Assistance Email" type="email" value={form.assistanceEmail} onChange={v => set("assistanceEmail", v)} span2 />
+
+          {/* Category first — drives lender type dropdown */}
+          <div>
+            <div style={fieldLabel}>CATEGORY <span style={{ color: C.danger }}>*</span></div>
+            <select value={form.category} onChange={e => handleCategoryChange(e.target.value)}
+              style={{ ...inputStyle, cursor: "pointer", appearance: "none",
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg
+' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          {/* Conditional Lender Type — filtered by selected category */}
+          <div>
+            <div style={fieldLabel}>
+              LENDER TYPE
+              <span style={{ marginLeft: 6, fontSize: 9, color: C.goldDark, letterSpacing: 1 }}>
+                ↳ {form.category}
+              </span>
+            </div>
+            <select value={form.lenderType} onChange={e => set("lenderType", e.target.value)}
+              style={{ ...inputStyle, cursor: "pointer", appearance: "none",
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg
+' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center",
+                border: `1.5px solid ${C.goldDark}66`,
+                background: `${C.goldDark}08`,
+              }}>
+              {availableTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
+          <FormField label="Location / State" value={form.location} onChange={v => set("location", v)} />
+          <AddressField label="Address" value={form.address || ""} onChange={v => set("address", v)} span2 />
+          <FormField label="Interest Rate (%)" type="number" step="0.01" value={form.rate} onChange={v => set("rate", v)} />
+          <FormField label="Min Loan ($)" type="number" value={form.minLoan} onChange={v => set("minLoan", v)} />
+          <FormField label="Max Loan ($)" type="number" value={form.maxLoan} onChange={v => set("maxLoan", v)} />
+
+          {/* Enhanced Terms & Conditions with view/download */}
+          <TermsFileField
+            label="Terms & Conditions (PDF / Image)"
+            fileName={form.termsFileName}
+            fileData={form.termsFileData}
+            onChange={f => setForm(prev => ({ ...prev, termsFileName: f ? f.name : "", termsFileData: f ? f.data : null }))}
+            span2
+          />
+          <FormField label="Notes" value={form.notes} onChange={v => set("notes", v)} textarea span2 />
+        </div>
+        <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+          <button onClick={onCancel} className="btn-transition" style={{ flex: 1, padding: "13px", background: "white", border: `1.5px solid ${C.ivoryDark}`, borderRadius: 12, cursor: "pointer", fontSize: 13, color: C.charcoal }}>Cancel</button>
+          <button onClick={() => {
+            if (!form.bankName) { alert("Bank name required."); return; }
+            onSave({ ...form, rate: parseFloat(form.rate) || 0, minLoan: parseInt(form.minLoan) || 0, maxLoan: parseInt(form.maxLoan) || 0 });
+          }} className="btn-transition" style={{ flex: 2, padding: "13px", background: C.goldDark, color: "white", border: "none", borderRadius: 12, cursor: "pointer", fontSize: 13, fontWeight: "bold", letterSpacing: 1 }}>
+            {initial ? "SAVE CHANGES" : "ADD LENDER"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// WORKERS VIEW — Deal performance by "Created By" field
+// ─────────────────────────────────────────────────────────────
+function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
+  const [dateFilter, setDateFilter] = useState("all");
+  const [customFrom,  setCustomFrom]  = useState("");
+  const [customTo,    setCustomTo]    = useState("");
+  const [expandedWorker, setExpandedWorker] = useState(null);
+  const [confirmPayAll, setConfirmPayAll] = useState(null); // { workerName, amount, dealIds }
+  const [confirmPayJob, setConfirmPayJob] = useState(null); // { dealId, amount, workerName }
+
+  const today = new Date();
+  const toDateStr = d => d.toISOString().slice(0, 10);
+
+  const filterDeal = d => {
+    const created = d.createdAt || "";
+    if (!created) return true;
+    if (dateFilter === "today") return created === toDateStr(today);
+    if (dateFilter === "7days") {
+      const from = new Date(today); from.setDate(from.getDate()-6);
+      return created >= toDateStr(from);
+    }
+    if (dateFilter === "30days") {
+      const from = new Date(today); from.setDate(from.getDate()-29);
+      return created >= toDateStr(from);
+    }
+    if (dateFilter === "custom") {
+      if (customFrom && created < customFrom) return false;
+      if (customTo && created > customTo) return false;
+      return true;
+    }
+    return true;
+  };
+
+  const filteredDeals = deals.filter(filterDeal);
+  const totalFiltered = filteredDeals.length;
+
+  // Group by createdBy
+  const workerNames = [...new Set([
+    ...workers.map(w=>w.name),
+    ...deals.map(d=>d.createdBy).filter(Boolean),
+  ])].filter(Boolean);
+
+  const stats = workerNames.map(name => {
+    const worker = workers.find(wk=>wk.name===name);
+    const commPct = parseFloat(worker?.commission) || 0;
+    const workerDeals = filteredDeals.filter(d=>(d.createdBy||"")===name);
+    const totalValue  = workerDeals.reduce((s,d)=>s+(d.value||0),0);
+    const pct = totalFiltered>0 ? Math.round((workerDeals.length/totalFiltered)*100) : 0;
+    const stageBreakdown = DEAL_STAGES.map(s=>({
+      ...s, count: workerDeals.filter(d=>d.dealStage===s.id).length,
+    })).filter(s=>s.count>0);
+
+    // Commission per deal = paymentAmount * commPct / 100
+    const dealsWithComm = workerDeals.map(d => {
+      const commEarned = commPct ? Math.round((d.paymentAmount||0) * commPct / 100) : 0;
+      const isPaid = !!(d.paidWorkers && d.paidWorkers[name]);
+      return { ...d, commEarned, isPaid };
+    });
+    const totalCommEarned = dealsWithComm.reduce((s,d)=>s+d.commEarned,0);
+    const totalCommPaid   = dealsWithComm.filter(d=>d.isPaid).reduce((s,d)=>s+d.commEarned,0);
+    const totalCommOwed   = totalCommEarned - totalCommPaid;
+    const unpaidDeals     = dealsWithComm.filter(d=>!d.isPaid && d.commEarned>0);
+
+    return { name, count:workerDeals.length, totalValue, pct, stageBreakdown, commPct, totalCommEarned, totalCommPaid, totalCommOwed, unpaidDeals, dealsWithComm };
+  }).sort((a,b)=>b.count-a.count);
+
+  const dateFilterOptions = [
+    { value:"all",    label:"All Time"     },
+    { value:"today",  label:"Today"        },
+    { value:"7days",  label:"Last 7 Days"  },
+    { value:"30days", label:"Last 30 Days" },
+    { value:"custom", label:"Custom Range" },
+  ];
+
+  return (
+    <div style={{ padding:"20px 16px 40px", maxWidth:860, margin:"0 auto", width:"100%" }}>
+      <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>PERFORMANCE</div>
+      <h2 style={{ margin:"0 0 20px", fontSize:22, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
+        Workers <span style={{ color:"#bbb", fontSize:16 }}>({workers.length})</span>
+      </h2>
+
+      {/* Date filter */}
+      <div style={{ background:"white", borderRadius:14, padding:"14px", marginBottom:20, border:`1px solid ${C.ivoryDark}` }}>
+        <div style={{ fontSize:9, color:"#aaa", letterSpacing:2, marginBottom:10 }}>DATE FILTER</div>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {dateFilterOptions.map(opt=>(
+            <button key={opt.value} onClick={()=>setDateFilter(opt.value)} className="btn-transition"
+              style={{ padding:"7px 14px", borderRadius:20, cursor:"pointer", fontSize:11, border:`1px solid ${C.ivoryDark}`,
+                background:dateFilter===opt.value?C.goldDark:C.bg, color:dateFilter===opt.value?"white":C.charcoal, fontWeight:dateFilter===opt.value?"bold":"normal" }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        {dateFilter==="custom" && (
+          <div style={{ display:"flex", gap:10, marginTop:12, alignItems:"center", flexWrap:"wrap" }}>
+            <div>
+              <div style={fieldLabel}>FROM</div>
+              <input type="date" value={customFrom} onChange={e=>setCustomFrom(e.target.value)} style={{...inputStyle, width:"auto"}} />
+            </div>
+            <div>
+              <div style={fieldLabel}>TO</div>
+              <input type="date" value={customTo} onChange={e=>setCustomTo(e.target.value)} style={{...inputStyle, width:"auto"}} />
+            </div>
+          </div>
+        )}
+        <div style={{ marginTop:10, fontSize:11, color:"#aaa" }}>{totalFiltered} deal{totalFiltered!==1?"s":""} in selected period</div>
+      </div>
+
+      {/* Worker cards */}
+      {stats.length===0 ? (
+        <div style={{ textAlign:"center", padding:"50px 0", color:"#bbb", fontSize:13 }}>No worker data found.</div>
+      ) : stats.map((w,i) => (
+        <div key={w.name} className="card-hover" style={{
+          background:"white", border:`1px solid ${C.ivoryDark}`,
+          borderLeft:`4px solid ${C.goldDark}`, borderRadius:14,
+          padding:"18px", marginBottom:12,
+          boxShadow:"0 1px 4px rgba(0,0,0,0.05)",
+        }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, marginBottom:14, flexWrap:"wrap" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+              <div style={{
+                width:44, height:44, borderRadius:"50%", flexShrink:0,
+                background:`${C.goldDark}22`, display:"flex", alignItems:"center",
+                justifyContent:"center", fontSize:17, color:C.goldDark, fontWeight:"bold",
+              }}>
+                {w.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div style={{ fontWeight:"bold", fontSize:15, fontFamily:"Georgia, serif", color:C.charcoal }}>{w.name}</div>
+                <div style={{ fontSize:10, color:"#aaa", marginTop:2, display:"flex", alignItems:"center", gap:8 }}>
+                  <span>{w.count} deal{w.count!==1?"s":""} · {w.pct}% of pipeline</span>
+                  {w.commPct ? <span style={{ padding:"2px 8px", borderRadius:8, background:`${C.warning}18`, color:C.warning, fontSize:9, fontWeight:"bold", border:`1px solid ${C.warning}33` }}>{w.commPct}% Commission</span> : null}
+                </div>
+              </div>
+            </div>
+            <div style={{ display:"flex", gap:16, flexWrap:"wrap", alignItems:"center" }}>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>TOTAL VALUE</div>
+                <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.goldDark }}>{fmt$(w.totalValue)}</div>
+              </div>
+              {w.commPct ? (
+                <>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>COMM. EARNED</div>
+                    <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.success }}>{fmt$(w.totalCommEarned)}</div>
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>COMM. PAID</div>
+                    <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:"#6B7280" }}>{fmt$(w.totalCommPaid)}</div>
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>COMM. OWED</div>
+                    <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:w.totalCommOwed>0?C.danger:"#6B7280" }}>{fmt$(w.totalCommOwed)}</div>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+
+          {/* % bar */}
+          <div style={{ marginBottom:12 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+              <span style={{ fontSize:9, color:"#aaa", letterSpacing:1 }}>SHARE OF DEALS</span>
+              <span style={{ fontSize:9, color:C.goldDark, fontWeight:"bold" }}>{w.pct}%</span>
+            </div>
+            <div style={{ height:6, background:"#F3F4F6", borderRadius:3 }}>
+              <div style={{ height:"100%", width:`${w.pct}%`, background:C.goldDark, borderRadius:3, transition:"width 0.5s" }} />
+            </div>
+          </div>
+
+          {/* Stage breakdown */}
+          {w.stageBreakdown.length>0 && (
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
+              {w.stageBreakdown.map(s=>(
+                <span key={s.id} style={{ fontSize:9, padding:"3px 9px", borderRadius:12, border:`1px solid ${s.color}33`, background:s.bg, color:s.color, fontWeight:"bold" }}>
+                  {s.icon} {s.label} ({s.count})
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Commission payment section */}
+          {w.commPct > 0 && (
+            <div style={{ borderTop:`1px solid ${C.ivory}`, paddingTop:12, marginTop:4 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                <div style={{ fontSize:9, color:"#aaa", letterSpacing:2 }}>COMMISSION PAYMENTS</div>
+                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                  {w.unpaidDeals.length>0 && (
+                    <button onClick={()=>setConfirmPayAll({ workerName:w.name, amount:w.totalCommOwed, dealIds:w.unpaidDeals.map(d=>d.id) })}
+                      className="btn-transition" style={{
+                        padding:"7px 14px", background:C.success, color:"white", border:"none",
+                        borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:"bold", letterSpacing:0.5,
+                        display:"flex", alignItems:"center", gap:5,
+                      }}>
+                      💳 Pay All ({fmt$(w.totalCommOwed)})
+                    </button>
+                  )}
+                  <button onClick={()=>setExpandedWorker(expandedWorker===w.name?null:w.name)}
+                    className="btn-transition" style={{
+                      padding:"7px 12px", background:C.bg, color:C.charcoal, border:`1px solid ${C.ivoryDark}`,
+                      borderRadius:8, cursor:"pointer", fontSize:11,
+                    }}>
+                    {expandedWorker===w.name?"Hide Jobs ▲":"View Jobs ▼"}
+                  </button>
+                </div>
+              </div>
+
+              {expandedWorker===w.name && (
+                <div className="anim-fade-up">
+                  {w.dealsWithComm.length===0 ? (
+                    <div style={{ fontSize:12, color:"#bbb", textAlign:"center", padding:"16px 0" }}>No deals in this period.</div>
+                  ) : w.dealsWithComm.map(d=>(
+                    <div key={d.id} style={{
+                      display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
+                      background:d.isPaid?`${C.success}08`:`${C.danger}04`,
+                      border:`1px solid ${d.isPaid?C.success+"33":C.ivoryDark}`,
+                      borderRadius:9, marginBottom:6,
+                    }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:12, fontWeight:"bold", color:C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.address||"No address"}</div>
+                        <div style={{ fontSize:10, color:"#aaa", marginTop:2 }}>
+                          Fee: {fmt$(d.paymentAmount||0)} · {w.commPct}% = <span style={{ color:C.success, fontWeight:"bold" }}>{fmt$(d.commEarned)}</span>
+                          {d.closingDate && <span style={{ marginLeft:8 }}>📅 {d.closingDate}</span>}
+                        </div>
+                      </div>
+                      {d.isPaid ? (
+                        <span style={{ fontSize:11, color:C.success, fontWeight:"bold", padding:"5px 10px", background:`${C.success}15`, borderRadius:7, border:`1px solid ${C.success}44`, whiteSpace:"nowrap" }}>
+                          ✓ Paid
+                        </span>
+                      ) : d.commEarned > 0 ? (
+                        <button onClick={()=>setConfirmPayJob({ dealId:d.id, amount:d.commEarned, workerName:w.name })}
+                          className="btn-transition" style={{
+                            padding:"6px 12px", background:C.goldDark, color:"white", border:"none",
+                            borderRadius:7, cursor:"pointer", fontSize:11, fontWeight:"bold", whiteSpace:"nowrap",
+                          }}>
+                          Pay {fmt$(d.commEarned)}
+                        </button>
+                      ) : (
+                        <span style={{ fontSize:10, color:"#bbb", whiteSpace:"nowrap" }}>No comm.</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* Pay single job confirmation */}
+      {confirmPayJob && (
+        <ConfirmModal
+          title="Mark Job as Paid"
+          message={`Mark commission of ${fmt$(confirmPayJob.amount)} for this deal as paid to ${confirmPayJob.workerName}?`}
+          confirmLabel="Confirm Payment"
+          onConfirm={()=>{ onPayDeal(confirmPayJob.dealId, confirmPayJob.workerName); setConfirmPayJob(null); }}
+          onCancel={()=>setConfirmPayJob(null)}
+        />
+      )}
+
+      {/* Pay all confirmation */}
+      {confirmPayAll && (
+        <ConfirmModal
+          title="Pay All Outstanding Commission"
+          message={`Mark all outstanding commission (${fmt$(confirmPayAll.amount)}) as paid to ${confirmPayAll.workerName}? This covers ${confirmPayAll.dealIds.length} unpaid deal${confirmPayAll.dealIds.length!==1?"s":""}.`}
+          confirmLabel="Confirm Payment"
+          onConfirm={()=>{ onPayAllDeals(confirmPayAll.dealIds, confirmPayAll.workerName); setConfirmPayAll(null); }}
+          onCancel={()=>setConfirmPayAll(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// SETTINGS VIEW — Worker Management (Manager only)
+// ─────────────────────────────────────────────────────────────
+function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
+  const blankWorker = { name: "", email: "", password: "", role: "worker", commission: "" };
+  const [form, setForm]         = useState(blankWorker);
+  const [showPass, setShowPass] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const menuRef = useRef();
+  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleAdd = () => {
+    if (!form.name.trim())     { alert("Name is required."); return; }
+    if (!form.email.trim())    { alert("Email is required."); return; }
+    if (!form.password.trim()) { alert("Password is required."); return; }
+    if (workers.find(w => w.email.toLowerCase() === form.email.toLowerCase())) {
+      alert("A worker with this email already exists."); return;
+    }
+    onAddWorker({ ...form, id: Date.now() });
+    setForm(blankWorker);
+  };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = e => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div style={{ padding: "20px 16px 90px", maxWidth: 700, margin: "0 auto", width: "100%" }}>
+      <div style={{ color: C.goldDark, fontSize: 9, letterSpacing: 4, marginBottom: 4 }}>ADMINISTRATION</div>
+      <h2 style={{ color: C.charcoal, margin: "0 0 24px", fontSize: 22, fontFamily: "Georgia, serif", fontWeight: "normal" }}>
+        Settings & Workers
+      </h2>
+
+      {/* Add Worker Card */}
+      <div style={{ background: "white", border: `1px solid ${C.ivoryDark}`, borderRadius: 14, padding: "24px 20px", marginBottom: 24 }}>
+        <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 3, marginBottom: 16 }}>ADD TEAM MEMBER</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <FormField label="Full Name" value={form.name} onChange={v => setF("name", v)} required span2 />
+          <FormField label="Email Address" type="email" value={form.email} onChange={v => setF("email", v)} required />
+          {/* Password field with toggle */}
+          <div>
+            <div style={fieldLabel}>PASSWORD <span style={{ color: C.danger }}>*</span></div>
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPass ? "text" : "password"}
+                value={form.password}
+                onChange={e => setF("password", e.target.value)}
+                style={{ ...inputStyle, paddingRight: 44 }}
+              />
+              <button type="button" onClick={() => setShowPass(v => !v)}
+                style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aaa", padding: 0, display: "flex", alignItems: "center" }}>
+                <EyeIcon open={showPass} />
+              </button>
+            </div>
+          </div>
+          {/* Role + Commission side by side */}
+          <div style={{ gridColumn:"1/-1", display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+            <div>
+              <div style={fieldLabel}>ROLE</div>
+              <select value={form.role} onChange={e => setF("role", e.target.value)}
+                style={{ ...inputStyle, cursor: "pointer", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg
+' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}>
+                <option value="worker">Regular Worker</option>
+                <option value="manager">Manager</option>
+              </select>
+            </div>
+            <div>
+              <div style={fieldLabel}>COMMISSION PERCENTAGE</div>
+              <div style={{ position:"relative" }}>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={form.commission}
+                  onChange={e => setF("commission", e.target.value)}
+                  placeholder="e.g. 1, 2, 2.5"
+                  style={{ ...inputStyle, paddingRight: 36 }}
+                />
+                <span style={{ position:"absolute", right:14, top:"50%", transform:"translateY(-50%)", color:"#aaa", fontSize:14, pointerEvents:"none" }}>%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Role description */}
+        <div style={{ marginTop: 14, background: C.bg, borderRadius: 10, padding: "12px 14px", fontSize: 12, color: "#777", lineHeight: 1.7 }}>
+          {form.role === "manager"
+            ? "✦ Manager — Full access: Dashboard, financial data, lenders, clients, settings & worker management."
+            : "✦ Regular Worker — Restricted access: Can view, add & manage Lenders and Clients only. No Dashboard or admin access."}
+        </div>
+
+        <button onClick={handleAdd} className="btn-transition" style={{
+          marginTop: 18, width: "100%", padding: "13px",
+          background: C.charcoal, color: C.gold,
+          border: "none", borderRadius: 12,
+          cursor: "pointer", fontSize: 12, letterSpacing: 2, fontWeight: "bold",
+        }}>
+          + ADD WORKER
+        </button>
+      </div>
+
+      {/* Worker List */}
+      <div style={{ background: "white", border: `1px solid ${C.ivoryDark}`, borderRadius: 14, padding: "20px" }}>
+        <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 3, marginBottom: 16 }}>
+          TEAM MEMBERS ({workers.length})
+        </div>
+        {workers.length === 0 ? (
+          <div style={{ textAlign: "center", color: "#bbb", padding: "30px 0", fontSize: 13 }}>No workers yet.</div>
+        ) : (
+          workers.map(w => (
+            <div key={w.id} style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+              padding: "12px 0", borderBottom: `1px solid ${C.ivory}`,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
+                  background: w.role === "manager" ? `${C.goldDark}22` : "#F3F4F6",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 15, color: w.role === "manager" ? C.goldDark : "#6B7280", fontWeight: "bold",
+                }}>
+                  {w.name.charAt(0).toUpperCase()}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: "bold", color: C.charcoal, fontSize: 13, fontFamily: "Georgia, serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {w.name}
+                  </div>
+                  <div style={{ color: "#999", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {w.email}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                <span style={{
+                  fontSize: 9, letterSpacing: 1, padding: "4px 10px", borderRadius: 10,
+                  background: w.role === "manager" ? `${C.goldDark}18` : "#F3F4F6",
+                  color: w.role === "manager" ? C.goldDark : "#6B7280",
+                  border: `1px solid ${w.role === "manager" ? C.goldDark + "44" : "#E5E7EB"}`,
+                }}>
+                  {w.role === "manager" ? "MANAGER" : "WORKER"}
+                </span>
+                {w.commission && (
+                  <span style={{
+                    fontSize: 9, letterSpacing: 1, padding: "4px 10px", borderRadius: 10,
+                    background: `${C.warning}18`, color: C.warning,
+                    border: `1px solid ${C.warning}44`,
+                  }}>
+                    {w.commission}% COMM.
+                  </span>
+                )}
+                <div style={{ position: "relative" }} ref={openMenuId === w.id ? menuRef : null}>
+                  <button onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)} className="btn-transition"
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#888", fontSize: 18, lineHeight: 1, padding: "2px 6px", fontWeight: "bold" }}>
+                    ···
+                  </button>
+                  {openMenuId === w.id && (
+                    <div className="anim-fade" style={{
+                      position: "absolute",
+                      top: "100%",
+                      right: 0,
+                      background: "white",
+                      border: `1px solid ${C.ivoryDark}`,
+                      borderRadius: 8,
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                      zIndex: 10000,
+                      minWidth: 140,
+                      overflow: "hidden",
+                      marginTop: 6,
+                    }}>
+                      <button onClick={() => { /* Edit handler */ setOpenMenuId(null); }}
+                        style={{
+                          width: "100%", padding: "10px 16px", background: "none", border: "none",
+                          cursor: "pointer", fontSize: 13, color: C.charcoal,
+                          textAlign: "left", transition: "all 0.15s",
+                          borderBottom: `1px solid ${C.ivory}`,
+                        }}
+                        onMouseEnter={e => e.target.style.background = C.bg}
+                        onMouseLeave={e => e.target.style.background = "none"}
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button onClick={() => { setConfirmDel(w); setOpenMenuId(null); }}
+                        style={{
+                          width: "100%", padding: "10px 16px", background: "none", border: "none",
+                          cursor: "pointer", fontSize: 13, color: C.danger,
+                          textAlign: "left", transition: "all 0.15s",
+                        }}
+                        onMouseEnter={e => e.target.style.background = "#FEF0EF"}
+                        onMouseLeave={e => e.target.style.background = "none"}
+                      >
+                        🗑 Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {confirmDel && (
+        <ConfirmModal
+          title="Remove Worker"
+          message={`Remove "${confirmDel.name}" from the team? They will no longer be able to log in.`}
+          confirmLabel="Remove"
+          danger
+          onConfirm={() => { onDeleteWorker(confirmDel.id); setConfirmDel(null); }}
+          onCancel={() => setConfirmDel(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────
+// MULTI-ENTRY PHONE FIELD
+// ─────────────────────────────────────────────────────────────
+const PHONE_TAGS = ["Work", "Home", "Mobile", "Fax", "Custom"];
+function MultiPhoneField({ phones, onChange }) {
+  const add = () => onChange([...phones, { number: "", tag: "Work" }]);
+  const upd = (i, k, v) => { const a = phones.map((p,j) => j===i ? {...p,[k]:v} : p); onChange(a); };
+  const del = i => onChange(phones.filter((_,j) => j!==i));
+  return (
+    <div style={{ gridColumn: "1/-1" }}>
+      <div style={fieldLabel}>PHONE NUMBERS</div>
+      {phones.map((p,i) => (
+        <div key={i} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
+          <input value={p.number} onChange={e=>upd(i,"number",e.target.value)} placeholder="Phone number"
+            style={{...inputStyle, flex:2}} />
+          <select value={p.tag} onChange={e=>upd(i,"tag",e.target.value)}
+            style={{...inputStyle, flex:1, cursor:"pointer"}}>
+            {PHONE_TAGS.map(t=><option key={t}>{t}</option>)}
+          </select>
+          <button onClick={()=>del(i)} style={{background:"none",border:"none",cursor:"pointer",color:C.danger,fontSize:18,flexShrink:0}}>×</button>
+        </div>
+      ))}
+      <button onClick={add} className="btn-transition" style={{
+        padding:"8px 14px", background:C.bg, border:`1.5px dashed ${C.ivoryDark}`,
+        borderRadius:8, cursor:"pointer", fontSize:11, color:C.goldDark, letterSpacing:1,
+      }}>+ Add Phone</button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// MULTI-ENTRY EMAIL FIELD
+// ─────────────────────────────────────────────────────────────
+function MultiEmailField({ emails, onChange }) {
+  const add = () => onChange([...emails, ""]);
+  const upd = (i,v) => onChange(emails.map((e,j)=>j===i?v:e));
+  const del = i => onChange(emails.filter((_,j)=>j!==i));
+  return (
+    <div style={{ gridColumn: "1/-1" }}>
+      <div style={fieldLabel}>EMAIL ADDRESSES</div>
+      {emails.map((e,i) => (
+        <div key={i} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
+          <input type="email" value={e} onChange={ev=>upd(i,ev.target.value)} placeholder="Email address"
+            style={{...inputStyle, flex:1}} />
+          <button onClick={()=>del(i)} style={{background:"none",border:"none",cursor:"pointer",color:C.danger,fontSize:18,flexShrink:0}}>×</button>
+        </div>
+      ))}
+      <button onClick={add} className="btn-transition" style={{
+        padding:"8px 14px", background:C.bg, border:`1.5px dashed ${C.ivoryDark}`,
+        borderRadius:8, cursor:"pointer", fontSize:11, color:C.goldDark, letterSpacing:1,
+      }}>+ Add Email</button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ORGANIZATION FORM
+// ─────────────────────────────────────────────────────────────
+const ENTITY_TYPES = ["LLC","Corporation","Partnership","Non-Profit","Other"];
+const VISIBLE_TO   = ["All","Manager Only","Assigned Team"];
+
+// Contact autocomplete field — searches clients list, shows "Add New Contact" if not found
+function ContactAutocomplete({ label, value, onChange, clients, onAddNew, span2 }) {
+  const [query, setQuery]   = useState(value || "");
+  const [open, setOpen]     = useState(false);
+  const ref                 = useRef(null);
+
+  useEffect(() => { setQuery(value || ""); }, [value]);
+
+  // Click-outside closes dropdown
+  useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const matches = query.length > 0
+    ? clients.filter(c => c.fullName.toLowerCase().includes(query.toLowerCase()))
+    : clients.slice(0, 6);
+
+  const exactMatch = clients.some(c => c.fullName.toLowerCase() === query.toLowerCase());
+
+  const pick = name => { onChange(name); setQuery(name); setOpen(false); };
+
+  return (
+    <div ref={ref} style={span2 ? { gridColumn:"1/-1", position:"relative" } : { position:"relative" }}>
+      <div style={fieldLabel}>{label.toUpperCase()}</div>
+      <div style={{ position:"relative" }}>
+        <input
+          value={query}
+          onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder={`Search contacts…`}
+          style={{ ...inputStyle, paddingRight: 36 }}
+        />
+        <span style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", fontSize:12, color:"#bbb", pointerEvents:"none" }}>▾</span>
+      </div>
+      {open && (
+        <div style={{
+          position:"absolute", top:"100%", left:0, right:0, zIndex:500,
+          background:"white", border:`1.5px solid ${C.ivoryDark}`, borderRadius:10,
+          boxShadow:"0 8px 32px rgba(0,0,0,0.12)", maxHeight:220, overflowY:"auto",
+          marginTop:4,
+        }}>
+          {matches.length > 0 ? matches.map(c => (
+    
