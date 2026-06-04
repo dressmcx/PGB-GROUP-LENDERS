@@ -3268,7 +3268,319 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
                       👤 {cl?.fullName||"—"} &nbsp;·&nbsp; 🏢 {org?.name||"—"}
                     </div>
                     <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap", alignItems:"center" }}>
-                      <StageBadge stageId={d.dealStage} small />
-                      {d.closingDate && <span style={{ fontSize:10, color:"#aaa" }}>📅 {d.closingDate}</span>}
-                      {d.visibleTo && d.visibleTo!=="all" && <span style={{ fontSize:9, padding:"3px 8px", borderRadius:10, background:`${C.info}18`, color:C.info, border:`1px solid ${C.info}33` }}>👁 {d.visibleTo==="managers"?"Managers Only":"Workers On
+<StageBadge stageId={d.dealStage} small />
+{d.closingDate && <span style={{ fontSize:10, color:"#aaa" }}>📅 {d.closingDate}</span>}
+{d.visibleTo && d.visibleTo!=="all" && <span style={{ fontSize:9, padding:"3px 8px", borderRadius:10, background:${C.info}18, color:C.info, border:1px solid ${C.info}33 }}>👁 {d.visibleTo==="managers"?"Managers Only":"Workers Only"}</span>}
+</div>
+</div>
+<div style={{ textAlign:"right", flexShrink:0 }}>
+<div style={{ fontSize:18, fontWeight:"bold", fontFamily:"Georgia, serif", color: isPri ? C.danger : C.goldDark }}>{fmt$`(d.value)}</div>
+</div>
+</div>
+
+{/* Pipeline mini-strip */}
+<div style={{ marginTop:12, overflowX:"auto" }}>
+<DealPipeline currentStage={d.dealStage} />
+</div>
+
+{d.notes && <div style={{ marginTop:10, fontSize:12, color:"#888", lineHeight:1.5, background:C.bg, borderRadius:8, padding:"8px 10px" }}>{d.notes}</div>}
+
+{/* Active reminder notes shown on card */}
+{(d.dealNotes||[]).filter(n=>!n.done).length>0 && (
+<div style={{ marginTop:10, background:"#FFFBEB", borderRadius:8, padding:"8px 10px", border:1px solid${C.warning}33}}&gt; &lt;div style={{ fontSize:9, color:C.warning, letterSpacing:1.5, marginBottom:6 }}&gt;📌 REMINDERS&lt;/div&gt; {(d.dealNotes||[]).filter(n=&gt;!n.done).map(note=&gt;( &lt;div key={note.id} style={{ fontSize:12, color:C.charcoal, lineHeight:1.5, marginBottom:4, paddingBottom:4, borderBottom:1px solid ${C.warning}22 }}>
+· {note.text}
+<span style={{ fontSize:9, color:"#aaa", marginLeft:8 }}>{note.createdAt}</span>
+</div>
+))}
+</div>
+)}
+
+{/* Actions */}
+<div style={{ display:"flex", gap:8, marginTop:12, paddingTop:12, borderTop:1px solid${C.ivory}}}&gt; &lt;button onClick={()=&gt;onEdit(d)} className="btn-transition" style={{ flex:1, padding:"10px", background:C.charcoal, color:C.gold, border:"none", borderRadius:10, cursor:"pointer", fontSize:11, letterSpacing:1 }}&gt;EDIT&lt;/button&gt; &lt;button onClick={()=&gt;setConfirmDel(d)} style={{ padding:"10px 16px", background:C.dangerLight, color:C.danger, border:1px solid ${C.danger}22, borderRadius:10, cursor:"pointer", fontSize:11 }}>Delete</button>
+</div>
+</div>
+</div>
+);
+})
+}
+
+{confirmDel && (
+<ConfirmModal title="Delete Deal" message={Remove deal at "${confirmDel.address}"? This cannot be undone.`}
+confirmLabel="Delete" danger
+onConfirm={()=>{onDelete(confirmDel.id);setConfirmDel(null);}}
+onCancel={()=>setConfirmDel(null)} />
+)}
+</div>
+);
+}
+
+// ─────────────────────────────────────────────────────────────
+// MAIN APP
+// ─────────────────────────────────────────────────────────────
+export default function App() {
+const [splash, setSplash] = useState(true);
+const [user, setUser] = useState(null);
+const [workers, setWorkers] = useState(INITIAL_WORKERS);
+const [lenders, setLenders] = useState(INITIAL_LENDERS);
+const [clients, setClients] = useState(INITIAL_CLIENTS);
+const [view, setView] = useState("dashboard");
+const [sidebarOpen, setSidebarOpen] = useState(false);
+const [selectedCategory, setSelectedCategory] = useState(null);
+const [selectedLocation, setSelectedLocation] = useState(null);
+const [editingLender, setEditingLender] = useState(null);
+const [formMode, setFormMode] = useState(null);
+const [clientFormOpen, setClientFormOpen] = useState(false);
+const [editingClient, setEditingClient] = useState(null);
+const [orgs, setOrgs] = useState(INITIAL_ORGS);
+const [deals, setDeals] = useState(INITIAL_DEALS);
+const [orgFormOpen, setOrgFormOpen] = useState(false);
+const [editingOrg, setEditingOrg] = useState(null);
+const [dealFormOpen, setDealFormOpen] = useState(false);
+const [editingDeal, setEditingDeal] = useState(null);
+// Inline "Add New Contact" — from OrgForm or DealForm
+const [addContactInline, setAddContactInline] = useState(null);
+// Inline "Add New Org" — from DealForm
+const [addOrgInline, setAddOrgInline] = useState(null);
+
+// Restrict workers to their allowed views
+const defaultView = user?.role === "manager" ? "dashboard" : "clients";
+
+const activeNav = ["dashboard","clients","orgs","deals","search","settings","workers","categories","location","lenders","form"].includes(view) ? (["categories","location","lenders","form"].includes(view) ? "categories" : view) : "categories";
+
+const navigate = id => {
+setSidebarOpen(false);
+// Workers cannot access dashboard or settings
+if (user?.role !== "manager" && (id === "dashboard" || id === "settings" || id === "workers")) return;
+if (id === "dashboard") setView("dashboard");
+else if (id === "clients") setView("clients");
+else if (id === "orgs") setView("orgs");
+else if (id === "deals") setView("deals");
+else if (id === "search") setView("search");
+else if (id === "workers") setView("workers");
+else if (id === "settings") setView("settings");
+else setView("categories");
+};
+
+// Lender handlers
+const handleCategorySelect = cat => { setSelectedCategory(cat); setView("location"); };
+const handleLocationSelect = loc => { setSelectedLocation(loc); setView("lenders"); };
+const handleLenderEdit = l => { setEditingLender({ ...l }); setFormMode("edit"); setView("form"); };
+const handleLenderAdd = () => { setEditingLender(null); setFormMode("add"); setView("form"); };
+const handleLenderDelete = id => setLenders(ls => ls.filter(l => l.id !== id));
+const handleLenderSave = form => {
+if (!form.bankName) { alert("Bank name is required."); return; }
+const cleanedForm = {
+...form,
+rate: parseFloat(form.rate) || 0,
+minLoan: parseInt(form.minLoan) || 0,
+maxLoan: parseInt(form.maxLoan) || 0,
+};
+if (formMode === "edit") {
+setLenders(ls => ls.map(l => l.id === editingLender.id ? { ...cleanedForm, id: editingLender.id } : l));
+} else {
+const newLender = { ...cleanedForm, id: Date.now() };
+setLenders(ls => [...ls, newLender]);
+setSelectedCategory(cleanedForm.category || selectedCategory);
+setSelectedLocation(cleanedForm.location || "All Locations");
+}
+setEditingLender(null);
+setFormMode(null);
+setView("lenders");
+};
+
+// Client handlers
+const handleClientSave = form => {
+let saved;
+if (editingClient) {
+saved = { ...form, id: editingClient.id, createdAt: editingClient.createdAt };
+setClients(cs => cs.map(c => c.id === editingClient.id ? saved : c));
+} else {
+saved = { ...form, id: Date.now(), createdAt: new Date().toISOString().slice(0, 10) };
+setClients(cs => [...cs, saved]);
+}
+setClientFormOpen(false);
+setEditingClient(null);
+// If opened from OrgForm or DealForm "Add New Contact", fire callback and re-open parent
+if (addContactInline) {
+addContactInline.callback(saved);
+setAddContactInline(null);
+// Re-open whichever parent triggered this
+if (addOrgInline === null && !orgFormOpen) {
+setDealFormOpen(true);
+} else {
+setOrgFormOpen(true);
+}
+}
+};
+const handleClientEdit = c => { setEditingClient(c); setClientFormOpen(true); };
+const handleClientDelete = id => setClients(cs => cs.filter(c => c.id !== id));
+const handleStageChange = (id, stage) => setClients(cs => cs.map(c => c.id === id ? { ...c, dealStage: stage } : c));
+
+// Worker handlers
+const handleAddWorker = w => setWorkers(ws => [...ws, w]);
+const handleDeleteWorker = id => setWorkers(ws => ws.filter(w => w.id !== id));
+
+// Org handlers
+const handleOrgSave = form => {
+let saved;
+if (editingOrg) {
+saved = { ...form, id: editingOrg.id };
+setOrgs(os => os.map(o => o.id === editingOrg.id ? saved : o));
+} else {
+saved = { ...form, id: Date.now() };
+setOrgs(os => [...os, saved]);
+}
+setOrgFormOpen(false); setEditingOrg(null);
+// Fire callback if opened inline from DealForm
+if (addOrgInline) {
+addOrgInline.callback(saved);
+setAddOrgInline(null);
+setDealFormOpen(true);
+}
+};
+const handleOrgEdit = o => { setEditingOrg(o); setOrgFormOpen(true); };
+const handleOrgDelete = id => setOrgs(os => os.filter(o => o.id !== id));
+
+// Deal handlers
+const handleDealSave = form => {
+if (editingDeal) {
+setDeals(ds => ds.map(d => d.id === editingDeal.id ? { ...form, id: editingDeal.id, createdAt: editingDeal.createdAt } : d));
+} else {
+setDeals(ds => [...ds, { ...form, id: Date.now(), createdAt: new Date().toISOString().slice(0,10) }]);
+}
+setDealFormOpen(false); setEditingDeal(null);
+};
+const handleDealEdit = d => { setEditingDeal(d); setDealFormOpen(true); };
+const handleDealDelete = id => setDeals(ds => ds.filter(d => d.id !== id));
+
+const handleLogin = loggedInUser => {
+setUser(loggedInUser);
+setView(loggedInUser.role === "manager" ? "dashboard" : "clients");
+};
+
+if (splash) return (
+<>
+<GlobalStyles />
+<SplashScreen onEnter={() => setSplash(false)} />
+</>
+);
+if (!user) return (
+<>
+<GlobalStyles />
+<LoginScreen onLogin={handleLogin} workers={workers} />
+</>
+);
+
+const renderMain = () => {
+switch (view) {
+case "form":
+return <LenderForm initial={editingLender} defaultCategory={selectedCategory} defaultLocation={selectedLocation}
+onSave={handleLenderSave} onCancel={() => setView("lenders")} />;
+case "search":
+return <SearchView lenders={lenders} onEdit={handleLenderEdit} onDelete={handleLenderDelete} />;
+case "lenders":
+return <LenderList lenders={lenders} category={selectedCategory} location={selectedLocation}
+onEdit={handleLenderEdit} onDelete={handleLenderDelete} onAdd={handleLenderAdd} onBack={() => setView("location")} />;
+case "location":
+return <LocationSelect category={selectedCategory} lenders={lenders} onSelect={handleLocationSelect} onAdd={handleLenderAdd} />;
+case "categories":
+return <CategorySelect onSelect={handleCategorySelect} />;
+case "clients":
+return <ClientsView clients={clients} onAdd={() => { setEditingClient(null); setClientFormOpen(true); }}
+onEdit={handleClientEdit} onDelete={handleClientDelete} />;
+case "orgs":
+return <OrgsView orgs={orgs} onAdd={() => { setEditingOrg(null); setOrgFormOpen(true); }}
+onEdit={handleOrgEdit} onDelete={handleOrgDelete} />;
+case "deals":
+return <DealsView deals={deals} clients={clients} orgs={orgs}
+onAdd={() => { setEditingDeal(null); setDealFormOpen(true); }}
+onEdit={handleDealEdit} onDelete={handleDealDelete} onStageChange={(id,stage)=>setDeals(ds=>ds.map(d=>d.id===id?{...d,dealStage:stage}:d))} />;
+case "settings":
+if (user.role !== "manager") { setView("clients"); return null; }
+return <SettingsView workers={workers} onAddWorker={handleAddWorker} onDeleteWorker={handleDeleteWorker} />;
+case "workers":
+if (user.role !== "manager") { setView("clients"); return null; }
+return <WorkersView deals={deals} workers={workers}
+onPayDeal={(dealId, workerName) => setDeals(ds => ds.map(d => d.id===dealId ? { ...d, paidWorkers: { ...(d.paidWorkers||{}), [workerName]: true } } : d))}
+onPayAllDeals={(dealIds, workerName) => setDeals(ds => ds.map(d => dealIds.includes(d.id) ? { ...d, paidWorkers: { ...(d.paidWorkers||{}), [workerName]: true } } : d))}
+/>;
+default:
+if (user.role !== "manager") return <ClientsView clients={clients} onAdd={() => { setEditingClient(null); setClientFormOpen(true); }}
+onEdit={handleClientEdit} onDelete={handleClientDelete} />;
+return <Dashboard lenders={lenders} clients={clients} deals={deals} user={user} onCategorySelect={handleCategorySelect} onNavigate={navigate} />;
+}
+};
+
+return (
+<>
+<GlobalStyles />
+<div style={{ fontFamily: "Georgia, serif", background: C.bg, minHeight: "100vh", overflowX: "hidden" }}>
+<Header user={user} onLogout={() => setUser(null)} onHome={() => setView(defaultView)}
+onMenuToggle={() => setSidebarOpen(v => !v)} sidebarOpen={sidebarOpen} />
+
+<Sidebar activeNav={activeNav} onNavigate={navigate}
+isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} userRole={user.role} />
+
+<main style={{ minHeight: "calc(100vh - 58px)", paddingBottom: 24, width: "100%", overflowX: "hidden" }}>
+{renderMain()}
+</main>
+
+
+
+{clientFormOpen && (
+<Modal onClose={() => { setClientFormOpen(false); setEditingClient(null); }} maxWidth={640}>
+<ClientForm
+initial={editingClient}
+onSave={handleClientSave}
+onCancel={() => { setClientFormOpen(false); setEditingClient(null); }}
+/>
+</Modal>
+)}
+{orgFormOpen && (
+<Modal onClose={() => { setOrgFormOpen(false); setEditingOrg(null); }} maxWidth={700}>
+<OrgForm
+initial={editingOrg}
+clients={clients}
+onSave={handleOrgSave}
+onCancel={() => { setOrgFormOpen(false); setEditingOrg(null); }}
+onAddNewContact={(prefillName, cb) => {
+// Pause OrgForm, open ClientForm pre-filled
+setOrgFormOpen(false);
+setAddContactInline({ prefillName, callback: cb });
+setEditingClient({ fullName: prefillName, phone:"", email:"", address:"",
+notes:"", _isNew:true });
+setClientFormOpen(true);
+}}
+/>
+</Modal>
+)}
+{dealFormOpen && (
+<Modal onClose={() => { setDealFormOpen(false); setEditingDeal(null); }} maxWidth={640}>
+<DealForm
+initial={editingDeal}
+clients={clients}
+orgs={orgs}
+currentUser={user}
+onSave={handleDealSave}
+onCancel={() => { setDealFormOpen(false); setEditingDeal(null); }}
+onAddNewContact={(prefillName, cb) => {
+setDealFormOpen(false);
+setAddContactInline({ prefillName, callback: cb });
+setEditingClient({ fullName: prefillName, phones:[{number:"",tag:"Work"}], emails:[""], address:"", notes:"", _isNew:true });
+setClientFormOpen(true);
+}}
+onAddNewOrg={(prefillName, cb) => {
+setDealFormOpen(false);
+setAddOrgInline({ prefillName, callback: cb });
+setEditingOrg({ name: prefillName, sponsor:"", sponsor2:"", officeContact:"", mgmtContact:"", assistance:"", loanOfficer:"", address:"", entityType:"LLC", phones:[{number:"",tag:"Work"}], emails:[""], _isNew:true });
+setOrgFormOpen(true);
+}}
+/>
+</Modal>
+)}
+</div>
+</>
+);
+}
+
     
