@@ -2595,10 +2595,680 @@ function ContactAutocomplete({ label, value, onChange, clients, onAddNew, span2 
       </div>
       {open && (
         <div style={{
+          
           position:"absolute", top:"100%", left:0, right:0, zIndex:500,
           background:"white", border:`1.5px solid ${C.ivoryDark}`, borderRadius:10,
           boxShadow:"0 8px 32px rgba(0,0,0,0.12)", maxHeight:220, overflowY:"auto",
           marginTop:4,
         }}>
           {matches.length > 0 ? matches.map(c => (
+            <div key={c.id} onMouseDown={() => pick(c.fullName)} style={{
+              padding:"11px 14px", cursor:"pointer", fontSize:13, color:C.charcoal,
+              borderBottom:`1px solid ${C.ivory}`,
+              display:"flex", alignItems:"center", gap:10,
+            }}
+            onMouseEnter={e=>e.currentTarget.style.background=C.bg}
+            onMouseLeave={e=>e.currentTarget.style.background="white"}>
+              <div style={{
+                width:28, height:28, borderRadius:"50%", background:`${C.goldDark}22`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:11, color:C.goldDark, fontWeight:"bold", flexShrink:0,
+              }}>{c.fullName.charAt(0)}</div>
+              <div>
+                <div style={{ fontWeight:"bold" }}>{c.fullName}</div>
+                {c.email && <div style={{ fontSize:10, color:"#999" }}>{c.email}</div>}
+              </div>
+            </div>
+          )) : (
+            <div style={{ padding:"10px 14px", fontSize:12, color:"#aaa" }}>No contacts found</div>
+          )}
+          {!exactMatch && query.trim().length > 0 && (
+            <div onMouseDown={() => { setOpen(false); onAddNew(query.trim(), label); }}
+              style={{
+                padding:"12px 14px", cursor:"pointer", fontSize:12,
+                color:C.goldDark, borderTop:`1px solid ${C.ivory}`,
+                display:"flex", alignItems:"center", gap:8, fontWeight:"bold",
+              }}
+              onMouseEnter={e=>e.currentTarget.style.background=`${C.goldDark}0D`}
+              onMouseLeave={e=>e.currentTarget.style.background="white"}>
+              <span style={{ fontSize:16 }}>＋</span>
+              Add "{query.trim()}" as new contact
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OrgForm({ initial, clients, onSave, onCancel, onAddNewContact }) {
+  const blank = {
+    name:"", sponsor:"", sponsor2:"", officeContact:"",
+    mgmtContact:"", assistance:"", loanOfficer:"", address:"",
+    entityType:"LLC",
+    phones:[{ number:"", tag:"Work" }], emails:[""],
+  };
+  const [form, setForm] = useState(initial ? {...initial} : blank);
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  // "Add New Contact" inline: saves field key + prefill name, then hands off
+  const handleAddNew = (prefillName, fieldLabel) => {
+    // Store current form progress before opening new contact form
+    onAddNewContact(prefillName, (newClient) => {
+      // Callback fires when new client is saved — auto-fill the right field
+      const fieldMap = {
+        "Sponsor Information":          "sponsor",
+        "Sponsor 2 Information":        "sponsor2",
+        "Office Contact":               "officeContact",
+        "Management Company Contact":   "mgmtContact",
+        "Assistance":                   "assistance",
+        "Loan Officer":                 "loanOfficer",
+      };
+      const key = fieldMap[fieldLabel];
+      if (key) set(key, newClient.fullName);
+    });
+  };
+
+  return (
+    <div style={{ padding:"24px 20px 40px" }}>
+      <div style={{ width:36, height:4, background:C.ivoryDark, borderRadius:2, margin:"0 auto 20px" }} />
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
+        <h2 style={{ margin:0, fontSize:20, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
+          {initial ? "Edit Organization" : "Add Organization"}
+        </h2>
+        <button onClick={onCancel} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#aaa" }}>×</button>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+        <FormField label="Organization Name" value={form.name} onChange={v=>set("name",v)} required span2 />
+        <SelectField label="Entity Type" value={form.entityType} onChange={v=>set("entityType",v)} options={ENTITY_TYPES} />
+        <div /> {/* grid spacer */}
+        <ContactAutocomplete label="Sponsor Information" value={form.sponsor} onChange={v=>set("sponsor",v)} clients={clients} onAddNew={handleAddNew} />
+        <ContactAutocomplete label="Sponsor 2 Information" value={form.sponsor2} onChange={v=>set("sponsor2",v)} clients={clients} onAddNew={handleAddNew} />
+        <ContactAutocomplete label="Office Contact" value={form.officeContact} onChange={v=>set("officeContact",v)} clients={clients} onAddNew={handleAddNew} />
+        <ContactAutocomplete label="Management Company Contact" value={form.mgmtContact} onChange={v=>set("mgmtContact",v)} clients={clients} onAddNew={handleAddNew} />
+        <ContactAutocomplete label="Assistance" value={form.assistance} onChange={v=>set("assistance",v)} clients={clients} onAddNew={handleAddNew} />
+        <AddressField label="Address" value={form.address} onChange={v=>set("address",v)} span2 />
+        <MultiPhoneField phones={form.phones} onChange={v=>set("phones",v)} />
+        <MultiEmailField emails={form.emails} onChange={v=>set("emails",v)} />
+      </div>
+      <div style={{ display:"flex", gap:10, marginTop:24 }}>
+        <button onClick={onCancel} className="btn-transition" style={{
+          flex:1, padding:"14px", background:"white", border:`1.5px solid ${C.ivoryDark}`,
+          borderRadius:12, cursor:"pointer", fontSize:13, color:C.charcoal,
+        }}>Cancel</button>
+        <button onClick={()=>{ if(!form.name.trim()){alert("Organization name is required.");return;} onSave(form); }}
+          className="btn-transition" style={{
+            flex:2, padding:"14px", background:C.goldDark, color:"white",
+            border:"none", borderRadius:12, cursor:"pointer", fontSize:13, fontWeight:"bold", letterSpacing:1,
+          }}>{initial ? "SAVE CHANGES" : "ADD ORGANIZATION"}</button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ORGS VIEW
+// ─────────────────────────────────────────────────────────────
+function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
+  const [q, setQ] = useState("");
+  const [confirmDel, setConfirmDel] = useState(null);
+  const filtered = orgs.filter(o => !q || [o.name,o.owner,o.loanOfficer,o.entityType,o.address].some(f=>(f||"").toLowerCase().includes(q.toLowerCase())));
+  return (
+    <div style={{ padding:"20px 16px 32px", maxWidth:860, margin:"0 auto", width:"100%" }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, flexWrap:"wrap", gap:12 }}>
+        <div>
+          <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>DIRECTORY</div>
+          <h2 style={{ margin:0, fontSize:22, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
+            Organizations <span style={{ color:"#bbb", fontSize:16 }}>({orgs.length})</span>
+          </h2>
+        </div>
+        <button onClick={onAdd} className="btn-transition" style={{
+          padding:"12px 20px", background:C.charcoal, color:C.gold,
+          border:"none", borderRadius:12, cursor:"pointer", fontSize:12, letterSpacing:2,
+        }}>+ ADD ORG</button>
+      </div>
+      <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
+        <input type="text" placeholder="🔍  Search organizations…" value={q} onChange={e=>setQ(e.target.value)}
+          style={{...inputStyle, flex:1, marginBottom:0}} />
+        <button onClick={()=>{
+          const headers = ["Name","Entity Type","Owner","Loan Officer","Address","Phone","Email"];
+          const rows = filtered.map(o=>[
+            o.name,
+            o.entityType||"",
+            o.owner||"",
+            o.loanOfficer||"",
+            o.address||"",
+            (o.phones||[]).map(p=>p.number).filter(Boolean).join("; "),
+            (o.emails||[]).filter(Boolean).join("; "),
+          ]);
+          const csv = [headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+          const blob = new Blob([csv],{type:"text/csv"});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a"); a.href=url; a.download="organizations.csv"; a.click(); URL.revokeObjectURL(url);
+        }} className="btn-transition" style={{
+          padding:"9px 16px", background:C.success, color:"white", border:"none",
+          borderRadius:8, cursor:"pointer", fontSize:11, fontWeight:"bold", letterSpacing:0.5,
+          whiteSpace:"nowrap", flexShrink:0,
+        }}>
+          Export to Excel
+        </button>
+      </div>
+      {filtered.length === 0
+        ? <div style={{ textAlign:"center", padding:"50px 0", color:"#bbb" }}>No organizations found.</div>
+        : filtered.map(o => (
+          <div key={o.id} className="card-hover" style={{
+            background:"white", border:`1px solid ${C.ivoryDark}`, borderLeft:`4px solid ${C.goldDark}`,
+            borderRadius:14, padding:"18px 18px 14px", marginBottom:12,
+            boxShadow:"0 1px 4px rgba(0,0,0,0.05)",
+          }}>
+            {/* TOP ROW: Name + Entity Badge + Actions */}
+            <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:10, marginBottom:10 }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                  <span style={{ fontWeight:"bold", fontSize:15, fontFamily:"Georgia, serif", color:C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.name}</span>
+                  <span style={{ fontSize:9, padding:"3px 9px", borderRadius:10, letterSpacing:1, background:`${C.goldDark}18`, color:C.goldDark, border:`1px solid ${C.goldDark}33`, fontWeight:"bold", whiteSpace:"nowrap" }}>
+                    {o.entityType}
+                  </span>
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                <button onClick={()=>onEdit(o)} className="btn-transition" style={{ padding:"7px 12px", background:C.charcoal, color:C.gold, border:"none", borderRadius:8, cursor:"pointer", fontSize:11 }}>EDIT</button>
+                <button onClick={()=>setConfirmDel(o)} style={{ background:"none", border:"none", color:C.danger, cursor:"pointer", fontSize:11, textDecoration:"underline", padding:"7px 4px" }}>Delete</button>
+              </div>
+            </div>
+
+            {/* MIDDLE ROW: Owner + Loan Officer side by side */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+              <div>
+                <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>OWNER</div>
+                <div style={{ fontSize:13, color:C.charcoal, fontWeight:"bold" }}>{o.owner||"—"}</div>
+              </div>
+              <div>
+                <div style={{ fontSize:9, color:"#bbb", letterSpacing:1.5, marginBottom:2 }}>LOAN OFFICER</div>
+                <div style={{ fontSize:13, color:C.charcoal }}>{o.loanOfficer||"—"}</div>
+              </div>
+            </div>
+
+            {/* FOOTER: Address · Phone · Email */}
+            <div style={{ borderTop:`1px solid ${C.ivory}`, paddingTop:10, display:"flex", flexDirection:"column", gap:6 }}>
+              {o.address && (
+                <a href={`https://maps.google.com/?q
+=${encodeURIComponent(o.address)}`} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize:12, color:C.charcoal, textDecoration:"none", display:"flex", alignItems:"center", gap:5 }}>
+                  <span style={{ color:C.goldDark }}>📍</span>
+                  <span style={{ borderBottom:`1px solid ${C.gold}`, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.address}</span>
+                </a>
+              )}
+              <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+                {o.phones?.find(p=>p.number) && (
+                  <a href={`tel:${o.phones.find(p=>p.number).number}`}
+                    style={{ fontSize:12, color:C.charcoal, textDecoration:"none", display:"flex", alignItems:"center", gap:4 }}>
+                    <span style={{ color:C.goldDark }}>📞</span>
+                    <span style={{ borderBottom:`1px solid ${C.gold}` }}>{o.phones.find(p=>p.number).number}</span>
+                    <span style={{ fontSize:9, color:"#aaa" }}>({o.phones.find(p=>p.number).tag})</span>
+                  </a>
+                )}
+                {o.emails?.find(Boolean) && (
+                  <a href={`mailto:${o.emails.find(Boolean)}`}
+                    style={{ fontSize:12, color:C.charcoal, textDecoration:"none", display:"flex", alignItems:"center", gap:4, minWidth:0 }}>
+                    <span style={{ color:C.goldDark }}>✉</span>
+                    <span style={{ borderBottom:`1px solid ${C.gold}`, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.emails.find(Boolean)}</span>
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        ))
+      }
+      {confirmDel && (
+        <ConfirmModal title="Delete Organization" message={`Remove "${confirmDel.name}"? This cannot be undone.`}
+          confirmLabel="Delete" danger
+          onConfirm={()=>{ onDelete(confirmDel.id); setConfirmDel(null); }}
+          onCancel={()=>setConfirmDel(null)} />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// DEAL FORM — inline quick-add for contact/org, auto createdBy, visibleTo
+// ─────────────────────────────────────────────────────────────
+const SEL_STYLE = {
+  cursor:"pointer", appearance:"none",
+  backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg
+' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
+  backgroundRepeat:"no-repeat", backgroundPosition:"right 14px center",
+};
+
+// Inline search+create for Contact/Org in DealForm
+function DealLinkField({ label, items, value, onChange, onAddNew, idField, nameField }) {
+  const [q, setQ]       = useState(() => { const found = items.find(i=>i[idField]===Number(value)||i[idField]===value); return found ? found[nameField] : ""; });
+  const [open, setOpen] = useState(false);
+  const ref             = useRef(null);
+
+  useEffect(() => {
+    const found = items.find(i=>i[idField]===Number(value)||i[idField]===value);
+    setQ(found ? found[nameField] : "");
+  }, [value, items]);
+
+  useEffect(() => {
+    const h = e => { if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  const matches = q.trim()
+    ? items.filter(i=>(i[nameField]||"").toLowerCase().includes(q.toLowerCase()))
+    : items.slice(0,8);
+  const exactMatch = items.some(i=>(i[nameField]||"").toLowerCase()===q.toLowerCase());
+
+  const pick = item => { onChange(item[idField]); setQ(item[nameField]); setOpen(false); };
+
+  return (
+    <div ref={ref} style={{ position:"relative" }}>
+      <div style={fieldLabel}>{label.toUpperCase()}</div>
+      <div style={{ position:"relative" }}>
+        <input value={q} onChange={e=>{ setQ(e.target.value); setOpen(true); if(!e.target.value) onChange(""); }}
+          onFocus={()=>setOpen(true)} placeholder={`Search or create ${label.toLowerCase()}…`}
+          style={{...inputStyle, paddingRight:36}} />
+        <span style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", fontSize:12, color:"#bbb", pointerEvents:"none" }}>▾</span>
+      </div>
+      {open && (
+        <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:600, background:"white", border:`1.5px solid ${C.ivoryDark}`, borderRadius:10, boxShadow:"0 8px 32px rgba(0,0,0,0.12)", maxHeight:200, overflowY:"auto", marginTop:4 }}>
+          {matches.length>0 ? matches.map(item=>(
+            <div key={item[idField]} onMouseDown={()=>pick(item)}
+              style={{ padding:"10px 14px", cursor:"pointer", fontSize:13, color:C.charcoal, borderBottom:`1px solid ${C.ivory}`, display:"flex", alignItems:"center", gap:10 }}
+              onMouseEnter={e=>e.currentTarget.style.background=C.bg}
+              onMouseLeave={e=>e.currentTarget.style.background="white"}>
+              <div style={{ width:26, height:26, borderRadius:"50%", background:`${C.goldDark}22`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:C.goldDark, fontWeight:"bold", flexShrink:0 }}>{(item[nameField]||"?").charAt(0)}</div>
+              <span style={{ fontWeight:"bold" }}>{item[nameField]}</span>
+            </div>
+          )) : <div style={{ padding:"10px 14px", fontSize:12, color:"#aaa" }}>No {label.toLowerCase()} found</div>}
+          {!exactMatch && q.trim().length>0 && (
+            <div onMouseDown={()=>{ setOpen(false); onAddNew(q.trim()); }}
+              style={{ padding:"11px 14px", cursor:"pointer", fontSize:12, color:C.goldDark, borderTop:`1px solid ${C.ivory}`, display:"flex", alignItems:"center", gap:8, fontWeight:"bold" }}
+              onMouseEnter={e=>e.currentTarget.style.background=`${C.goldDark}0D`}
+              onMouseLeave={e=>e.currentTarget.style.background="white"}>
+              <span style={{ fontSize:16 }}>＋</span> Add "{q.trim()}" as new {label.toLowerCase()}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DealForm({ initial, clients, orgs, onSave, onCancel, currentUser, onAddNewContact, onAddNewOrg }) {
+  const blank = {
+    contactId:"", orgId:"",
+    address:"", value:"", closingDate:"",
+    createdBy: currentUser?.name || "",
+    dealType:"Regular", dealStage:"intake",
+    paymentAmount:"",
+    visibleTo:"all",
+    notes:"",
+    dealNotes: [],
+    dealFiles: { folders: [], rootFiles: [] },
+    _pendingCompleteNote: null,
+  };
+  const [form, setForm] = useState(initial
+    ? {...initial, paymentAmount:initial.paymentAmount||"", value:initial.value||"", createdBy:initial.createdBy||currentUser?.name||"", dealNotes:initial.dealNotes||[], dealFiles:initial.dealFiles||{ folders: [], rootFiles: [] }}
+    : blank);
+  const [pendingStage, setPendingStage] = useState(null);
+  const [newNote, setNewNote] = useState("");
+  const [pendingDeleteNote, setPendingDeleteNote] = useState(null);
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const isPriority = form.dealType === "Priority";
+
+  return (
+    <div style={{ padding:"24px 20px 48px" }}>
+      <div style={{ width:36, height:4, background:C.ivoryDark, borderRadius:2, margin:"0 auto 20px" }} />
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <h2 style={{ margin:0, fontSize:20, fontFamily:"Georgia, serif", fontWeight:"normal", color: isPriority ? C.danger : C.charcoal }}>
+            {initial ? "Edit Deal" : "Add Deal"}
+          </h2>
+          {isPriority && (
+            <span style={{ fontSize:10, letterSpacing:1, padding:"4px 10px", borderRadius:10, background:"#FEE2E2", color:C.danger, border:`1px solid ${C.danger}44`, fontWeight:"bold", animation:"pulse 2s infinite" }}>
+              ● PRIORITY
+            </span>
+          )}
+        </div>
+        <button onClick={onCancel} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#aaa" }}>×</button>
+      </div>
+
+      {/* Pipeline progress bar */}
+      <div style={{ background: isPriority ? "#FEE2E2" : C.bg, borderRadius:12, padding:"14px 12px", marginBottom:20, border: isPriority ? `1px solid ${C.danger}33` : "none" }}>
+        <div style={{ fontSize:9, letterSpacing:2, color: isPriority ? C.danger : "#999", marginBottom:10 }}>DEAL PROGRESS</div>
+        <DealPipeline currentStage={form.dealStage} />
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+
+        {/* Organization — inline quick-add */}
+        <DealLinkField label="Organization" items={orgs} value={form.orgId}
+          onChange={v=>set("orgId",v)} idField="id" nameField="name"
+          onAddNew={name=>onAddNewOrg(name, newO=>set("orgId", newO.id))} />
+
+        <AddressField label="Address" value={form.address} onChange={v=>set("address",v)} span2 />
+
+        {/* Value */}
+        <div>
+          <div style={fieldLabel}>VALUE</div>
+          <div style={{ position:"relative" }}>
+            <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"#888", fontSize:14 }}>$</span>
+            <input type="number" value={form.value} onChange={e=>set("value",e.target.value)} placeholder="0" style={{...inputStyle, paddingLeft:28}} />
+          </div>
+        </div>
+
+        <FormField label="Expected Closing Date" type="date" value={form.closingDate} onChange={v=>set("closingDate",v)} />
+
+        {/* Created By — auto-populated, read-only display */}
+        <div>
+          <div style={fieldLabel}>CREATED BY</div>
+          <div style={{ ...inputStyle, background:"#f8f8f8", color:"#888", display:"flex", alignItems:"center", gap:8, cursor:"default" }}>
+            <span style={{ fontSize:14 }}>👤</span>
+            <span>{form.createdBy || "—"}</span>
+          </div>
+        </div>
+
+        {/* Deal Type — Priority bold red styling */}
+        <div>
+          <div style={fieldLabel}>DEAL TYPE</div>
+          <select value={form.dealType} onChange={e=>set("dealType",e.target.value)}
+            style={{...inputStyle,...SEL_STYLE,
+              color: form.dealType==="Priority" ? C.danger : C.charcoal,
+              fontWeight: form.dealType==="Priority" ? "bold" : "normal",
+              border: form.dealType==="Priority" ? `2px solid ${C.danger}` : `1.5px solid ${C.ivoryDark}`,
+              background: form.dealType==="Priority" ? "#FEF2F2" : C.bg,
+            }}>
+            <option value="Regular">Regular</option>
+            <option value="Priority">Priority</option>
+          </select>
+        </div>
+
+        {/* Deal Stage */}
+        <div>
+          <div style={fieldLabel}>DEAL STAGE</div>
+          <select value={form.dealStage} onChange={e=>setPendingStage(e.target.value)} style={{...inputStyle,...SEL_STYLE}}>
+            {DEAL_STAGES.map(s=><option key={s.id} value={s.id}>{s.icon} {s.label}</option>)}
+          </select>
+        </div>
+
+        {/* Payment Amount only (no status) */}
+        <div>
+          <div style={fieldLabel}>PAYMENT AMOUNT ($)</div>
+          <div style={{ position:"relative" }}>
+            <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"#888", fontSize:14 }}>$</span>
+            <input type="number" value={form.paymentAmount} onChange={e=>set("paymentAmount",e.target.value)} placeholder="0" style={{...inputStyle, paddingLeft:28}} />
+          </div>
+        </div>
+
+        {/* Visible To */}
+        <div>
+          <div style={fieldLabel}>VISIBLE TO</div>
+          <select value={form.visibleTo} onChange={e=>set("visibleTo",e.target.value)} style={{...inputStyle,...SEL_STYLE}}>
+            <option value="all">Visible to All</option>
+            <option value="managers">Managers Only</option>
+            <option value="workers">Regular Workers</option>
+          </select>
+        </div>
+
+        <FormField label="Notes / Comments" value={form.notes} onChange={v=>set("notes",v)} textarea span2 />
+
+        {/* Deal Notes - Free text notes with Complete button and history */}
+        <div style={{ gridColumn: "1/-1" }}>
+          <div style={fieldLabel}>DEAL NOTES (FREE TEXT)</div>
+          <div style={{ display:"flex", gap:8, marginBottom:12, alignItems:"flex-start" }}>
+            <textarea value={newNote} onChange={e=>setNewNote(e.target.value)} placeholder="Add a note about this deal..."
+              style={{...inputStyle, flex:1, resize:"vertical"}} rows={2} />
+            <button onClick={()=>{
+              if(newNote.trim()) {
+                const noteId = Date.now();
+                set("dealNotes", [...(form.dealNotes||[]), {id:noteId, text:newNote.trim(), done:false, createdAt:new Date().toISOString().slice(0,10)}]);
+                setNewNote("");
+              }
+            }} style={{
+              padding:"11px 16px", background:C.charcoal, color:C.gold, border:"none", borderRadius:8,
+              cursor:"pointer", fontSize:11, fontWeight:"bold", letterSpacing:1, whiteSpace:"nowrap", marginTop:2
+            }}>+ ADD NOTE</button>
+          </div>
+          {/* Active notes (not done) */}
+          {(form.dealNotes||[]).filter(n=>!n.done).length>0 && (
+            <div style={{ background:C.bg, borderRadius:10, padding:"12px 14px", marginBottom:12 }}>
+              {(form.dealNotes||[]).filter(n=>!n.done).map(note=>(
+                <div key={note.id} style={{ display:"flex", alignItems:"flex-start", gap:10, marginBottom:10, paddingBottom:10, borderBottom:`1px solid ${C.ivory}` }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, color:C.charcoal, lineHeight:1.5 }}>{note.text}</div>
+                    <div style={{ fontSize:9, color:"#aaa", marginTop:4 }}>{note.createdAt}</div>
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6, flexShrink:0, marginTop:2 }}>
+                    <button onClick={()=>set("_pendingCompleteNote", note.id)}
+                      style={{ padding:"5px 12px", background:C.success, color:"white", border:"none", borderRadius:6, cursor:"pointer", fontSize:10, fontWeight:"bold", letterSpacing:0.5, whiteSpace:"nowrap" }}>
+                      Complete
+                    </button>
+                    <button onClick={()=>setPendingDeleteNote(note.id)}
+                      style={{ background:"none", border:"none", cursor:"pointer", color:C.danger, fontSize:11, fontWeight:"bold", textDecoration:"underline", padding:"2px 0", whiteSpace:"nowrap", letterSpacing:0.3 }}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Completed notes history */}
+          {(form.dealNotes||[]).filter(n=>n.done).length>0 && (
+            <div style={{ marginTop:8 }}>
+              <div style={{ fontSize:9, color:"#aaa", letterSpacing:2, marginBottom:6 }}>COMPLETED NOTES HISTORY</div>
+              <div style={{ background:"#F0FFF4", borderRadius:10, padding:"10px 14px", border:`1px solid ${C.success}33` }}>
+                {(form.dealNotes||[]).filter(n=>n.done).map(note=>(
+                  <div key={note.id} style={{ display:"flex", alignItems:"flex-start", gap:10, marginBottom:8, paddingBottom:8, borderBottom:`1px solid ${C.success}22` }}>
+                    <span style={{ color:C.success, fontSize:16, flexShrink:0, marginTop:1 }}>✔</span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:12, color:"#555", lineHeight:1.5, textDecoration:"line-through" }}>{note.text}</div>
+                      <div style={{ fontSize:9, color:"#aaa", marginTop:3 }}>Completed · {note.createdAt}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Deal File Manager — same as Contact File Manager */}
+        <ContactFileManager value={form.dealFiles || { folders: [], rootFiles: [] }} onChange={v=>set("dealFiles",v)} />
+      </div>
+
+      {/* Stage change confirmation */}
+      {pendingStage && pendingStage !== form.dealStage && (
+        <ConfirmModal title="Update Deal Stage" message={`Move this deal to "${stageInfo(pendingStage).label}"?`}
+          confirmLabel="Update Stage"
+          onConfirm={()=>{ set("dealStage",pendingStage); setPendingStage(null); }}
+          onCancel={()=>setPendingStage(null)} />
+      )}
+
+      {/* Complete note confirmation */}
+      {form._pendingCompleteNote && (
+        <ConfirmModal title="Complete Note"
+          message="This note will be archived from the active deal view. It will remain fully accessible in the completed notes history for reference."
+          confirmLabel="Mark Complete"
+          onConfirm={()=>{
+            set("dealNotes", (form.dealNotes||[]).map(n=>n.id===form._pendingCompleteNote?{...n,done:true}:n));
+            set("_pendingCompleteNote", null);
+          }}
+          onCancel={()=>set("_pendingCompleteNote", null)} />
+      )}
+
+      {/* Delete note confirmation */}
+      {pendingDeleteNote && (
+        <ConfirmModal title="Delete Note"
+          message="Are you sure you want to permanently delete this note? This action cannot be undone."
+          confirmLabel="Delete Note"
+          danger
+          onConfirm={()=>{
+            set("dealNotes", (form.dealNotes||[]).filter(n=>n.id!==pendingDeleteNote));
+            setPendingDeleteNote(null);
+          }}
+          onCancel={()=>setPendingDeleteNote(null)} />
+      )}
+
+      <div style={{ display:"flex", gap:10, marginTop:24 }}>
+        <button onClick={onCancel} className="btn-transition" style={{ flex:1, padding:"14px", background:"white", border:`1.5px solid ${C.ivoryDark}`, borderRadius:12, cursor:"pointer", fontSize:13, color:C.charcoal }}>Cancel</button>
+        <button onClick={()=>{ if(!form.address.trim()){alert("Address is required.");return;} onSave({...form, value:parseFloat(form.value)||0, paymentAmount:parseFloat(form.paymentAmount)||0}); }}
+          className="btn-transition" style={{
+            flex:2, padding:"14px",
+            background: isPriority ? C.danger : C.goldDark,
+            color:"white", border:"none", borderRadius:12,
+            cursor:"pointer", fontSize:13, fontWeight:"bold", letterSpacing:1,
+            boxShadow: isPriority ? `0 4px 16px ${C.danger}44` : "none",
+          }}>
+          {initial ? "SAVE CHANGES" : "ADD DEAL"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// DEALS VIEW — pipeline hub with stage workflow + Priority/Regular styling
+// ─────────────────────────────────────────────────────────────
+function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChange }) {
+  const [q, setQ]               = useState("");
+  const [typeFilter, setType]   = useState("all");
+  const [stageFilter, setStage] = useState("all");
+  const [confirmDel, setConfirmDel] = useState(null);
+
+  const getClient = id => clients.find(c=>c.id===Number(id));
+  const getOrg    = id => orgs.find(o=>o.id===Number(id));
+
+  const isInactiveStage = d => d.dealStage === "cancelled" || d.dealStage === "completed";
+
+  const filtered = deals.filter(d=>{
+    const cl = getClient(d.contactId), org = getOrg(d.orgId);
+    const matchQ = !q || [d.address,cl?.fullName,org?.name,d.createdBy].some(f=>(f||"").toLowerCase().includes(q.toLowerCase()));
+    const matchT = typeFilter==="all" || d.dealType===typeFilter;
+    const matchS = stageFilter==="all" || d.dealStage===stageFilter;
+
+    // If explicitly filtering for completed/cancelled: show them
+    const explicitInactiveFilter = stageFilter==="completed" || stageFilter==="cancelled";
+    // If searching: show all matching deals (including completed/cancelled)
+    const isSearching = q.trim().length > 0;
+    // Default "all stages" view: hide completed and cancelled
+    const passesActiveRule = explicitInactiveFilter || isSearching || !isInactiveStage(d);
+
+    return matchQ && matchT && matchS && passesActiveRule;
+  });
+
+  const totalValue    = deals.reduce((s,d)=>s+(d.value||0),0);
+  const priorityCount = deals.filter(d=>d.dealType==="Priority").length;
+
+  return (
+    <div style={{ padding:"20px 16px 32px", maxWidth:900, margin:"0 auto", width:"100%" }}>
+
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, flexWrap:"wrap", gap:12 }}>
+        <div>
+          <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>PIPELINE HUB</div>
+          <h2 style={{ margin:0, fontSize:22, fontFamily:"Georgia, serif", fontWeight:"normal", color:C.charcoal }}>
+            Deals <span style={{ color:"#bbb", fontSize:16 }}>({deals.length})</span>
+            {priorityCount>0 && <span style={{ fontSize:11, marginLeft:10, color:C.danger, fontWeight:"bold" }}>● {priorityCount} Priority</span>}
+          </h2>
+        </div>
+        <button onClick={onAdd} className="btn-transition" style={{ padding:"12px 20px", background:C.charcoal, color:C.gold, border:"none", borderRadius:12, cursor:"pointer", fontSize:12, letterSpacing:2 }}>+ ADD DEAL</button>
+      </div>
+
+      {/* KPI strip */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:8, marginBottom:20 }}>
+        {[
+          { label:"TOTAL VALUE",   val:fmt$(totalValue),  color:C.goldDark },
+          { label:"TOTAL DEALS",   val:deals.length,      color:C.info },
+          { label:"PRIORITY",      val:priorityCount,     color:C.danger },
+        ].map((k,i)=>(
+          <div key={i} style={{ background:"white", borderRadius:12, padding:"12px 10px", border:`1px solid ${C.ivoryDark}`, borderTop:`3px solid ${k.color}`, textAlign:"center" }}>
+            <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>{k.label}</div>
+            <div style={{ fontSize:16, fontWeight:"bold", fontFamily:"Georgia, serif", color:k.color, marginTop:4 }}>{k.val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div style={{ background:"white", borderRadius:14, padding:"14px", marginBottom:16, border:`1px solid ${C.ivoryDark}` }}>
+        <input type="text" placeholder="🔍  Search deals by address, contact, org…" value={q} onChange={e=>setQ(e.target.value)}
+          style={{...inputStyle, marginBottom:10, fontSize:13}} />
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <select value={typeFilter} onChange={e=>setType(e.target.value)} style={{ flex:1, minWidth:110, padding:"9px 12px", background:C.bg, border:`1.5px solid ${C.ivoryDark}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>
+            <option value="all">All Types</option>
+            <option value="Regular">Regular</option>
+            <option value="Priority">Priority</option>
+          </select>
+          <select value={stageFilter} onChange={e=>setStage(e.target.value)} style={{ flex:2, minWidth:160, padding:"9px 12px", background:C.bg, border:`1.5px solid ${C.ivoryDark}`, borderRadius:8, fontSize:12, cursor:"pointer" }}>
+            <option value="all">All Stages</option>
+            {DEAL_STAGES.map(s=><option key={s.id} value={s.id}>{s.icon} {s.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Stage quick-filter pills */}
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
+        {DEAL_STAGES.map(s=>{
+          const cnt = deals.filter(d=>d.dealStage===s.id).length;
+          if(!cnt) return null;
+          return (
+            <button key={s.id} onClick={()=>setStage(stageFilter===s.id?"all":s.id)} className="btn-transition"
+              style={{ padding:"4px 10px", borderRadius:20, cursor:"pointer", fontSize:10, border:`1px solid ${s.color}33`,
+                background:stageFilter===s.id?s.color:s.bg, color:stageFilter===s.id?"white":s.color }}>
+              {s.icon} {s.label} ({cnt})
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ color:"#aaa", fontSize:11, marginBottom:12 }}>{filtered.length} deal{filtered.length!==1?"s":""} shown</div>
+
+      {/* Deal cards */}
+      {filtered.length===0
+        ? <div style={{ textAlign:"center", padding:"50px 0", color:"#bbb" }}>No deals found. <span style={{ color:C.goldDark, cursor:"pointer" }} onClick={onAdd}>Add one →</span></div>
+        : filtered.map(d=>{
+          const cl   = getClient(d.contactId);
+          const org  = getOrg(d.orgId);
+          const s    = stageInfo(d.dealStage);
+          const isPri = d.dealType==="Priority";
+          const isInactive = isInactiveStage(d);
+
+          return (
+            <div key={d.id} className="card-hover" style={{
+              background: isInactive ? "#FFF5F5" : "white", borderRadius:14, marginBottom:12, overflow:"hidden",
+              border:`1px solid ${isInactive ? C.danger+"44" : isPri ? C.danger+"55" : C.ivoryDark}`,
+              borderLeft:`4px solid ${isInactive ? C.danger : isPri ? C.danger : s.color}`,
+              boxShadow: isPri || isInactive ? `0 2px 12px ${C.danger}18` : "0 1px 4px rgba(0,0,0,0.05)",
+            }}>
+              {/* Card header */}
+              <div style={{ padding:"14px 16px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    {/* Title row */}
+                    <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:4 }}>
+                      <span style={{ fontWeight:"bold", fontSize:14, fontFamily:"Georgia, serif", color: isPri ? C.danger : C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        {d.address||"No address"}
+                      </span>
+                      {isPri && (
+                        <span style={{ fontSize:9, letterSpacing:1, padding:"3px 8px", borderRadius:10, background:"#FEE2E2", color:C.danger, border:`1px solid ${C.danger}33`, fontWeight:"bold", whiteSpace:"nowrap" }}>
+                          ● PRIORITY
+                        </span>
+                      )}
+                      {isInactive && (
+                        <span style={{ fontSize:9, letterSpacing:1, padding:"3px 8px", borderRadius:10, background:"#FEE2E2", color:C.danger, border:`1px solid ${C.danger}33`, fontWeight:"bold", whiteSpace:"nowrap" }}>
+                          ● {d.dealStage === "completed" ? "COMPLETED" : "CANCELLED"}
+                        </span>
+                      )}
+                    </div>
+                    {/* Meta */}
+                    <div style={{ fontSize:11, color:"#999" }}>
+                      👤 {cl?.fullName||"—"} &nbsp;·&nbsp; 🏢 {org?.name||"—"}
+                    </div>
+                    <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap", alignItems:"center" }}>
+                      <StageBadge stageId={d.dealStage} small />
+                      {d.closingDate && <span style={{ fontSize:10, color:"#aaa" }}>📅 {d.closingDate}</span>}
+                      {d.visibleTo && d.visibleTo!=="all" && <span style={{ fontSize:9, padding:"3px 8px", borderRadius:10, background:`${C.info}18`, color:C.info, border:`1px solid ${C.info}33` }}>👁 {d.visibleTo==="managers"?"Managers Only":"Workers On
     
