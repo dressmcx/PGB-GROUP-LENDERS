@@ -1427,8 +1427,9 @@ function ClientsView({ clients, onAdd, onEdit, onDelete }) {
 // DASHBOARD
 // ─────────────────────────────────────────────────────────────
 function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user }) {
-  const totalDealValue = (deals||[]).reduce((s,d)=>s+(d.value||0),0);
-  const priorityDeals  = (deals||[]).filter(d=>d.dealType==="Priority").length;
+  const activeDeals    = (deals||[]).filter(d=>d.dealStage!=="completed" && d.dealStage!=="cancelled");
+  const totalDealValue = activeDeals.reduce((s,d)=>s+(d.value||0),0);
+  const priorityDeals  = activeDeals.filter(d=>d.dealType==="Priority").length;
   const recentClients  = [...clients].sort((a,b)=>b.id-a.id).slice(0,5);
 
   // Pipeline columns — group clients by stage
@@ -1436,9 +1437,9 @@ function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user
   const dealsByStage   = id => (deals||[]).filter(d=>d.dealStage===id);
 
   const kpis = [
-    { label:"Total Contacts", value:clients.length,      color:C.goldDark, icon:"👤", sub:"in directory" },
-    { label:"Total Deals",    value:(deals||[]).length,  color:C.info,     icon:"🤝", sub:`${fmt$(totalDealValue)} value` },
-    { label:"Priority Deals", value:priorityDeals,       color:C.danger,   icon:"🔴", sub:"require attention" },
+    { label:"Total Contacts", value:clients.length,       color:C.goldDark, icon:"👤", sub:"in directory" },
+    { label:"Total Deals",    value:activeDeals.length,   color:C.info,     icon:"🤝", sub:`${fmt$(totalDealValue)} active value` },
+    { label:"Priority Deals", value:priorityDeals,        color:C.danger,   icon:"🔴", sub:"require attention" },
   ];
 
   return (
@@ -2046,16 +2047,19 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
       ...s, count: workerDeals.filter(d=>d.dealStage===s.id).length,
     })).filter(s=>s.count>0);
 
-    // Commission per deal = paymentAmount * commPct / 100
+    // Per deal: if worker has commPct, pay = paymentAmount * commPct / 100; otherwise flat paymentAmount
     const dealsWithComm = workerDeals.map(d => {
-      const commEarned = commPct ? Math.round((d.paymentAmount||0) * commPct / 100) : 0;
+      const commEarned = commPct
+        ? Math.round((d.paymentAmount||0) * commPct / 100)
+        : (d.paymentAmount||0);
       const isPaid = !!(d.paidWorkers && d.paidWorkers[name]);
       return { ...d, commEarned, isPaid };
     });
-    const totalCommEarned = dealsWithComm.reduce((s,d)=>s+d.commEarned,0);
-    const totalCommPaid   = dealsWithComm.filter(d=>d.isPaid).reduce((s,d)=>s+d.commEarned,0);
+    const payableDeals    = dealsWithComm.filter(d=>d.commEarned>0);
+    const totalCommEarned = payableDeals.reduce((s,d)=>s+d.commEarned,0);
+    const totalCommPaid   = payableDeals.filter(d=>d.isPaid).reduce((s,d)=>s+d.commEarned,0);
     const totalCommOwed   = totalCommEarned - totalCommPaid;
-    const unpaidDeals     = dealsWithComm.filter(d=>!d.isPaid && d.commEarned>0);
+    const unpaidDeals     = payableDeals.filter(d=>!d.isPaid);
 
     return { name, count:workerDeals.length, totalValue, pct, stageBreakdown, commPct, totalCommEarned, totalCommPaid, totalCommOwed, unpaidDeals, dealsWithComm };
   }).sort((a,b)=>b.count-a.count);
@@ -2134,18 +2138,18 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
                 <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>TOTAL VALUE</div>
                 <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.goldDark }}>{fmt$(w.totalValue)}</div>
               </div>
-              {w.commPct ? (
+              {w.totalCommEarned > 0 ? (
                 <>
                   <div style={{ textAlign:"right" }}>
-                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>COMM. EARNED</div>
+                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>{w.commPct ? "COMM. EARNED" : "TOTAL OWED"}</div>
                     <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.success }}>{fmt$(w.totalCommEarned)}</div>
                   </div>
                   <div style={{ textAlign:"right" }}>
-                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>COMM. PAID</div>
+                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>PAID</div>
                     <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:"#6B7280" }}>{fmt$(w.totalCommPaid)}</div>
                   </div>
                   <div style={{ textAlign:"right" }}>
-                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>COMM. OWED</div>
+                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>OUTSTANDING</div>
                     <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:w.totalCommOwed>0?C.danger:"#6B7280" }}>{fmt$(w.totalCommOwed)}</div>
                   </div>
                 </>
@@ -2175,11 +2179,13 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
             </div>
           )}
 
-          {/* Commission payment section */}
-          {w.commPct > 0 && (
+          {/* Payment section — shown for all workers that have deals with a paymentAmount */}
+          {w.dealsWithComm.some(d=>d.commEarned>0) && (
             <div style={{ borderTop:`1px solid ${C.ivory}`, paddingTop:12, marginTop:4 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                <div style={{ fontSize:9, color:"#aaa", letterSpacing:2 }}>COMMISSION PAYMENTS</div>
+                <div style={{ fontSize:9, color:"#aaa", letterSpacing:2 }}>
+                  {w.commPct ? "COMMISSION PAYMENTS" : "JOB PAYMENTS"}
+                </div>
                 <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                   {w.unpaidDeals.length>0 && (
                     <button onClick={()=>setConfirmPayAll({ workerName:w.name, amount:w.totalCommOwed, dealIds:w.unpaidDeals.map(d=>d.id) })}
@@ -2203,9 +2209,9 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
 
               {expandedWorker===w.name && (
                 <div className="anim-fade-up">
-                  {w.dealsWithComm.length===0 ? (
-                    <div style={{ fontSize:12, color:"#bbb", textAlign:"center", padding:"16px 0" }}>No deals in this period.</div>
-                  ) : w.dealsWithComm.map(d=>(
+                  {w.dealsWithComm.filter(d=>d.commEarned>0).length===0 ? (
+                    <div style={{ fontSize:12, color:"#bbb", textAlign:"center", padding:"16px 0" }}>No payable deals in this period.</div>
+                  ) : w.dealsWithComm.filter(d=>d.commEarned>0).map(d=>(
                     <div key={d.id} style={{
                       display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
                       background:d.isPaid?`${C.success}08`:`${C.danger}04`,
@@ -2215,7 +2221,10 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:12, fontWeight:"bold", color:C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.address||"No address"}</div>
                         <div style={{ fontSize:10, color:"#aaa", marginTop:2 }}>
-                          Fee: {fmt$(d.paymentAmount||0)} · {w.commPct}% = <span style={{ color:C.success, fontWeight:"bold" }}>{fmt$(d.commEarned)}</span>
+                          {w.commPct
+                            ? <>Fee: {fmt$(d.paymentAmount||0)} · {w.commPct}% = <span style={{ color:C.success, fontWeight:"bold" }}>{fmt$(d.commEarned)}</span></>
+                            : <>Payment: <span style={{ color:C.success, fontWeight:"bold" }}>{fmt$(d.commEarned)}</span></>
+                          }
                           {d.closingDate && <span style={{ marginLeft:8 }}>📅 {d.closingDate}</span>}
                         </div>
                       </div>
@@ -2223,7 +2232,7 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
                         <span style={{ fontSize:11, color:C.success, fontWeight:"bold", padding:"5px 10px", background:`${C.success}15`, borderRadius:7, border:`1px solid ${C.success}44`, whiteSpace:"nowrap" }}>
                           ✓ Paid
                         </span>
-                      ) : d.commEarned > 0 ? (
+                      ) : (
                         <button onClick={()=>setConfirmPayJob({ dealId:d.id, amount:d.commEarned, workerName:w.name })}
                           className="btn-transition" style={{
                             padding:"6px 12px", background:C.goldDark, color:"white", border:"none",
@@ -2231,8 +2240,6 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
                           }}>
                           Pay {fmt$(d.commEarned)}
                         </button>
-                      ) : (
-                        <span style={{ fontSize:10, color:"#bbb", whiteSpace:"nowrap" }}>No comm.</span>
                       )}
                     </div>
                   ))}
@@ -2247,7 +2254,7 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
       {confirmPayJob && (
         <ConfirmModal
           title="Mark Job as Paid"
-          message={`Mark commission of ${fmt$(confirmPayJob.amount)} for this deal as paid to ${confirmPayJob.workerName}?`}
+          message={`Mark payment of ${fmt$(confirmPayJob.amount)} for this deal as paid to ${confirmPayJob.workerName}?`}
           confirmLabel="Confirm Payment"
           onConfirm={()=>{ onPayDeal(confirmPayJob.dealId, confirmPayJob.workerName); setConfirmPayJob(null); }}
           onCancel={()=>setConfirmPayJob(null)}
@@ -2257,8 +2264,8 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
       {/* Pay all confirmation */}
       {confirmPayAll && (
         <ConfirmModal
-          title="Pay All Outstanding Commission"
-          message={`Mark all outstanding commission (${fmt$(confirmPayAll.amount)}) as paid to ${confirmPayAll.workerName}? This covers ${confirmPayAll.dealIds.length} unpaid deal${confirmPayAll.dealIds.length!==1?"s":""}.`}
+          title="Pay All Outstanding Balance"
+          message={`Mark all outstanding payments (${fmt$(confirmPayAll.amount)}) as paid to ${confirmPayAll.workerName}? This covers ${confirmPayAll.dealIds.length} unpaid deal${confirmPayAll.dealIds.length!==1?"s":""}.`}
           confirmLabel="Confirm Payment"
           onConfirm={()=>{ onPayAllDeals(confirmPayAll.dealIds, confirmPayAll.workerName); setConfirmPayAll(null); }}
           onCancel={()=>setConfirmPayAll(null)}
@@ -3579,4 +3586,4 @@ export default function App() {
       </div>
     </>
   );
-                                                                        }
+                    }
