@@ -631,7 +631,17 @@ function TermsFileField({ label = "Terms & Conditions (PDF / Image)", fileData, 
   const ref = useRef();
   const [viewerOpen, setViewerOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef();
   const isPdf = fileName && fileName.toLowerCase().endsWith(".pdf");
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
 
   const handleFile = e => {
     const file = e.target.files?.[0];
@@ -669,14 +679,29 @@ function TermsFileField({ label = "Terms & Conditions (PDF / Image)", fileData, 
           {!fileName && <div style={{ fontSize: 10, color: "#bbb", marginTop: 2 }}>Supported: PDF, PNG, JPG</div>}
         </div>
         {fileName && (
-          <button onClick={e => { e.stopPropagation(); ref.current?.click(); }}
-            style={{ background: "none", border: `1px solid ${C.ivoryDark}`, borderRadius: 6, cursor: "pointer", color: "#888", fontSize: 10, padding: "4px 8px", whiteSpace: "nowrap" }}>
-            Replace
-          </button>
-        )}
-        {fileName && (
-          <button onClick={e => { e.stopPropagation(); setConfirmDelete(true); }}
-            style={{ background: "none", border: "none", cursor: "pointer", color: C.danger, fontSize: 18, padding: "0 2px", lineHeight: 1 }}>×</button>
+          <div ref={menuRef} style={{ position: "relative", flexShrink: 0 }}>
+            <button onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
+              style={{ background: "none", border: `1px solid ${C.ivoryDark}`, borderRadius: 8, cursor: "pointer", color: "#666", fontSize: 16, padding: "4px 9px", lineHeight: 1, letterSpacing: 1 }}>
+              ⋯
+            </button>
+            {menuOpen && (
+              <div className="anim-fade" style={{
+                position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 500,
+                background: "white", borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                border: `1px solid ${C.ivoryDark}`, minWidth: 130, overflow: "hidden",
+              }}>
+                <button onClick={e => { e.stopPropagation(); setMenuOpen(false); ref.current?.click(); }}
+                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                  🔄 Replace
+                </button>
+                <div style={{ height: 1, background: C.ivory }} />
+                <button onClick={e => { e.stopPropagation(); setMenuOpen(false); setConfirmDelete(true); }}
+                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.danger, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                  🗑 Delete
+                </button>
+              </div>
+            )}
+          </div>
         )}
         <input ref={ref} type="file" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp" style={{ display: "none" }} onChange={handleFile} />
       </div>
@@ -831,8 +856,18 @@ function ContactFileManager({ value, onChange }) {
   const [previewFile, setPreviewFile]      = useState(null);
   const [confirmDel, setConfirmDel]        = useState(null); // {type:'folder'|'file', id, folderId?}
   const [draggingOver, setDraggingOver]    = useState(false);
+  const [menuOpenId, setMenuOpenId]        = useState(null); // id of row with open dropdown
   const uploadRef                          = useRef();
   const renameRef                          = useRef();
+  const menuRef                            = useRef();
+
+  // Close dropdown menu on outside click
+  useEffect(() => {
+    if (!menuOpenId) return;
+    const handler = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpenId(null); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpenId]);
 
   // Sync up to parent whenever fs changes
   useEffect(() => { onChange(fs); }, [fs]);
@@ -1085,8 +1120,29 @@ function ContactFileManager({ value, onChange }) {
               {renamingId !== folder.id && (
                 <>
                   <button title="Open" style={S.iconBtn(C.goldDark)} onClick={() => setActiveFolderId(folder.id)}>›</button>
-                  <button title="Rename" style={S.iconBtn("#888")} onClick={e => { e.stopPropagation(); setRenamingId(folder.id); setRenameVal(folder.name); }}>✏️</button>
-                  <button title="Delete folder" style={S.iconBtn(C.danger)} onClick={e => { e.stopPropagation(); setConfirmDel({ type: "folder", id: folder.id }); }}>🗑</button>
+                  <div ref={menuOpenId === folder.id ? menuRef : null} style={{ position: "relative", flexShrink: 0 }}>
+                    <button title="Options" onClick={e => { e.stopPropagation(); setMenuOpenId(menuOpenId === folder.id ? null : folder.id); }}
+                      style={{ ...S.iconBtn("#666"), border: `1px solid ${C.ivoryDark}`, borderRadius: 7, padding: "3px 8px", fontSize: 15, letterSpacing: 1 }}>
+                      ⋯
+                    </button>
+                    {menuOpenId === folder.id && (
+                      <div className="anim-fade" style={{
+                        position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 500,
+                        background: "white", borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                        border: `1px solid ${C.ivoryDark}`, minWidth: 140, overflow: "hidden",
+                      }}>
+                        <button onClick={e => { e.stopPropagation(); setMenuOpenId(null); setRenamingId(folder.id); setRenameVal(folder.name); }}
+                          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                          ✏️ Rename
+                        </button>
+                        <div style={{ height: 1, background: C.ivory }} />
+                        <button onClick={e => { e.stopPropagation(); setMenuOpenId(null); setConfirmDel({ type: "folder", id: folder.id }); }}
+                          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.danger, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                          🗑 Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
             </div>
@@ -1117,14 +1173,43 @@ function ContactFileManager({ value, onChange }) {
               )}
               <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", marginRight: 4 }}>{fmtSize(file.size)}</span>
               {renamingId !== file.id && (
-                <>
-                  {(isImage(file) || isPdf(file)) && (
-                    <button title="Preview" style={S.iconBtn(C.info)} onClick={() => setPreviewFile(file)}>👁</button>
+                <div ref={menuOpenId === file.id ? menuRef : null} style={{ position: "relative", flexShrink: 0 }}>
+                  <button title="Options" onClick={() => setMenuOpenId(menuOpenId === file.id ? null : file.id)}
+                    style={{ ...S.iconBtn("#666"), border: `1px solid ${C.ivoryDark}`, borderRadius: 7, padding: "3px 8px", fontSize: 15, letterSpacing: 1 }}>
+                    ⋯
+                  </button>
+                  {menuOpenId === file.id && (
+                    <div className="anim-fade" style={{
+                      position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 500,
+                      background: "white", borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                      border: `1px solid ${C.ivoryDark}`, minWidth: 150, overflow: "hidden",
+                    }}>
+                      {(isImage(file) || isPdf(file)) && (
+                        <>
+                          <button onClick={() => { setMenuOpenId(null); setPreviewFile(file); }}
+                            style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                            👁 View
+                          </button>
+                          <div style={{ height: 1, background: C.ivory }} />
+                        </>
+                      )}
+                      <button onClick={() => { setMenuOpenId(null); const a = document.createElement("a"); a.href = file.data; a.download = file.name; a.click(); }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                        ⬇ Download
+                      </button>
+                      <div style={{ height: 1, background: C.ivory }} />
+                      <button onClick={() => { setMenuOpenId(null); setRenamingId(file.id); setRenameVal(file.name); }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                        ✏️ Rename
+                      </button>
+                      <div style={{ height: 1, background: C.ivory }} />
+                      <button onClick={() => { setMenuOpenId(null); setConfirmDel({ type: "file", id: file.id, folderId: activeFolderId }); }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.danger, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                        🗑 Delete
+                      </button>
+                    </div>
                   )}
-                  <button title="Download" style={S.iconBtn("#888")} onClick={() => { const a = document.createElement("a"); a.href = file.data; a.download = file.name; a.click(); }}>⬇</button>
-                  <button title="Rename" style={S.iconBtn("#888")} onClick={() => { setRenamingId(file.id); setRenameVal(file.name); }}>✏️</button>
-                  <button title="Delete" style={S.iconBtn(C.danger)} onClick={() => setConfirmDel({ type: "file", id: file.id, folderId: activeFolderId })}>🗑</button>
-                </>
+                </div>
               )}
             </div>
           ))}
@@ -1427,9 +1512,8 @@ function ClientsView({ clients, onAdd, onEdit, onDelete }) {
 // DASHBOARD
 // ─────────────────────────────────────────────────────────────
 function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user }) {
-  const activeDeals    = (deals||[]).filter(d=>d.dealStage!=="completed" && d.dealStage!=="cancelled");
-  const totalDealValue = activeDeals.reduce((s,d)=>s+(d.value||0),0);
-  const priorityDeals  = activeDeals.filter(d=>d.dealType==="Priority").length;
+  const totalDealValue = (deals||[]).reduce((s,d)=>s+(d.value||0),0); // all-time total
+  const priorityDeals  = (deals||[]).filter(d=>d.dealType==="Priority").length;
   const recentClients  = [...clients].sort((a,b)=>b.id-a.id).slice(0,5);
 
   // Pipeline columns — group clients by stage
@@ -1437,9 +1521,9 @@ function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user
   const dealsByStage   = id => (deals||[]).filter(d=>d.dealStage===id);
 
   const kpis = [
-    { label:"Total Contacts", value:clients.length,       color:C.goldDark, icon:"👤", sub:"in directory" },
-    { label:"Total Deals",    value:activeDeals.length,   color:C.info,     icon:"🤝", sub:`${fmt$(totalDealValue)} active value` },
-    { label:"Priority Deals", value:priorityDeals,        color:C.danger,   icon:"🔴", sub:"require attention" },
+    { label:"Total Contacts", value:clients.length,      color:C.goldDark, icon:"👤", sub:"all time · directory" },
+    { label:"Total Deals",    value:(deals||[]).length,  color:C.info,     icon:"🤝", sub:`${fmt$(totalDealValue)} all-time value` },
+    { label:"Priority Deals", value:priorityDeals,       color:C.danger,   icon:"🔴", sub:"all-time priority" },
   ];
 
   return (
@@ -1447,11 +1531,11 @@ function Dashboard({ lenders, clients, deals, onCategorySelect, onNavigate, user
 
       {/* ── Greeting ── */}
       <div style={{ marginBottom:20 }}>
-        <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>OVERVIEW</div>
+        <div style={{ color:C.goldDark, fontSize:9, letterSpacing:4, marginBottom:4 }}>HISTORICAL OVERVIEW · ALL TIME</div>
         <h1 style={{ color:C.charcoal, margin:0, fontSize:24, fontFamily:"Georgia, serif", fontWeight:"normal" }}>
           Good day, {user.name}
         </h1>
-        <div style={{ color:"#aaa", fontSize:12, marginTop:4 }}>{(deals||[]).filter(d=>d.dealStage!=="cancelled").length} active deal{(deals||[]).filter(d=>d.dealStage!=="cancelled").length!==1?"s":""} in pipeline</div>
+        <div style={{ color:"#aaa", fontSize:12, marginTop:4 }}>{(deals||[]).length} total deals since inception &nbsp;·&nbsp; {(deals||[]).filter(d=>d.dealStage!=="cancelled" && d.dealStage!=="completed").length} currently active</div>
       </div>
 
       {/* ── KPI Banner — 3 cols ── */}
@@ -2047,19 +2131,16 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
       ...s, count: workerDeals.filter(d=>d.dealStage===s.id).length,
     })).filter(s=>s.count>0);
 
-    // Per deal: if worker has commPct, pay = paymentAmount * commPct / 100; otherwise flat paymentAmount
+    // Commission per deal = paymentAmount * commPct / 100
     const dealsWithComm = workerDeals.map(d => {
-      const commEarned = commPct
-        ? Math.round((d.paymentAmount||0) * commPct / 100)
-        : (d.paymentAmount||0);
+      const commEarned = commPct ? Math.round((d.paymentAmount||0) * commPct / 100) : 0;
       const isPaid = !!(d.paidWorkers && d.paidWorkers[name]);
       return { ...d, commEarned, isPaid };
     });
-    const payableDeals    = dealsWithComm.filter(d=>d.commEarned>0);
-    const totalCommEarned = payableDeals.reduce((s,d)=>s+d.commEarned,0);
-    const totalCommPaid   = payableDeals.filter(d=>d.isPaid).reduce((s,d)=>s+d.commEarned,0);
+    const totalCommEarned = dealsWithComm.reduce((s,d)=>s+d.commEarned,0);
+    const totalCommPaid   = dealsWithComm.filter(d=>d.isPaid).reduce((s,d)=>s+d.commEarned,0);
     const totalCommOwed   = totalCommEarned - totalCommPaid;
-    const unpaidDeals     = payableDeals.filter(d=>!d.isPaid);
+    const unpaidDeals     = dealsWithComm.filter(d=>!d.isPaid && d.commEarned>0);
 
     return { name, count:workerDeals.length, totalValue, pct, stageBreakdown, commPct, totalCommEarned, totalCommPaid, totalCommOwed, unpaidDeals, dealsWithComm };
   }).sort((a,b)=>b.count-a.count);
@@ -2138,18 +2219,18 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
                 <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>TOTAL VALUE</div>
                 <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.goldDark }}>{fmt$(w.totalValue)}</div>
               </div>
-              {w.totalCommEarned > 0 ? (
+              {w.commPct ? (
                 <>
                   <div style={{ textAlign:"right" }}>
-                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>{w.commPct ? "COMM. EARNED" : "TOTAL OWED"}</div>
+                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>COMM. EARNED</div>
                     <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.success }}>{fmt$(w.totalCommEarned)}</div>
                   </div>
                   <div style={{ textAlign:"right" }}>
-                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>PAID</div>
+                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>COMM. PAID</div>
                     <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:"#6B7280" }}>{fmt$(w.totalCommPaid)}</div>
                   </div>
                   <div style={{ textAlign:"right" }}>
-                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>OUTSTANDING</div>
+                    <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>COMM. OWED</div>
                     <div style={{ fontSize:15, fontWeight:"bold", fontFamily:"Georgia, serif", color:w.totalCommOwed>0?C.danger:"#6B7280" }}>{fmt$(w.totalCommOwed)}</div>
                   </div>
                 </>
@@ -2179,13 +2260,11 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
             </div>
           )}
 
-          {/* Payment section — shown for all workers that have deals with a paymentAmount */}
-          {w.dealsWithComm.some(d=>d.commEarned>0) && (
+          {/* Commission payment section */}
+          {w.commPct > 0 && (
             <div style={{ borderTop:`1px solid ${C.ivory}`, paddingTop:12, marginTop:4 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                <div style={{ fontSize:9, color:"#aaa", letterSpacing:2 }}>
-                  {w.commPct ? "COMMISSION PAYMENTS" : "JOB PAYMENTS"}
-                </div>
+                <div style={{ fontSize:9, color:"#aaa", letterSpacing:2 }}>COMMISSION PAYMENTS</div>
                 <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                   {w.unpaidDeals.length>0 && (
                     <button onClick={()=>setConfirmPayAll({ workerName:w.name, amount:w.totalCommOwed, dealIds:w.unpaidDeals.map(d=>d.id) })}
@@ -2209,9 +2288,9 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
 
               {expandedWorker===w.name && (
                 <div className="anim-fade-up">
-                  {w.dealsWithComm.filter(d=>d.commEarned>0).length===0 ? (
-                    <div style={{ fontSize:12, color:"#bbb", textAlign:"center", padding:"16px 0" }}>No payable deals in this period.</div>
-                  ) : w.dealsWithComm.filter(d=>d.commEarned>0).map(d=>(
+                  {w.dealsWithComm.length===0 ? (
+                    <div style={{ fontSize:12, color:"#bbb", textAlign:"center", padding:"16px 0" }}>No deals in this period.</div>
+                  ) : w.dealsWithComm.map(d=>(
                     <div key={d.id} style={{
                       display:"flex", alignItems:"center", gap:10, padding:"10px 12px",
                       background:d.isPaid?`${C.success}08`:`${C.danger}04`,
@@ -2221,10 +2300,7 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:12, fontWeight:"bold", color:C.charcoal, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.address||"No address"}</div>
                         <div style={{ fontSize:10, color:"#aaa", marginTop:2 }}>
-                          {w.commPct
-                            ? <>Fee: {fmt$(d.paymentAmount||0)} · {w.commPct}% = <span style={{ color:C.success, fontWeight:"bold" }}>{fmt$(d.commEarned)}</span></>
-                            : <>Payment: <span style={{ color:C.success, fontWeight:"bold" }}>{fmt$(d.commEarned)}</span></>
-                          }
+                          Fee: {fmt$(d.paymentAmount||0)} · {w.commPct}% = <span style={{ color:C.success, fontWeight:"bold" }}>{fmt$(d.commEarned)}</span>
                           {d.closingDate && <span style={{ marginLeft:8 }}>📅 {d.closingDate}</span>}
                         </div>
                       </div>
@@ -2232,7 +2308,7 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
                         <span style={{ fontSize:11, color:C.success, fontWeight:"bold", padding:"5px 10px", background:`${C.success}15`, borderRadius:7, border:`1px solid ${C.success}44`, whiteSpace:"nowrap" }}>
                           ✓ Paid
                         </span>
-                      ) : (
+                      ) : d.commEarned > 0 ? (
                         <button onClick={()=>setConfirmPayJob({ dealId:d.id, amount:d.commEarned, workerName:w.name })}
                           className="btn-transition" style={{
                             padding:"6px 12px", background:C.goldDark, color:"white", border:"none",
@@ -2240,6 +2316,8 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
                           }}>
                           Pay {fmt$(d.commEarned)}
                         </button>
+                      ) : (
+                        <span style={{ fontSize:10, color:"#bbb", whiteSpace:"nowrap" }}>No comm.</span>
                       )}
                     </div>
                   ))}
@@ -2254,7 +2332,7 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
       {confirmPayJob && (
         <ConfirmModal
           title="Mark Job as Paid"
-          message={`Mark payment of ${fmt$(confirmPayJob.amount)} for this deal as paid to ${confirmPayJob.workerName}?`}
+          message={`Mark commission of ${fmt$(confirmPayJob.amount)} for this deal as paid to ${confirmPayJob.workerName}?`}
           confirmLabel="Confirm Payment"
           onConfirm={()=>{ onPayDeal(confirmPayJob.dealId, confirmPayJob.workerName); setConfirmPayJob(null); }}
           onCancel={()=>setConfirmPayJob(null)}
@@ -2264,8 +2342,8 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
       {/* Pay all confirmation */}
       {confirmPayAll && (
         <ConfirmModal
-          title="Pay All Outstanding Balance"
-          message={`Mark all outstanding payments (${fmt$(confirmPayAll.amount)}) as paid to ${confirmPayAll.workerName}? This covers ${confirmPayAll.dealIds.length} unpaid deal${confirmPayAll.dealIds.length!==1?"s":""}.`}
+          title="Pay All Outstanding Commission"
+          message={`Mark all outstanding commission (${fmt$(confirmPayAll.amount)}) as paid to ${confirmPayAll.workerName}? This covers ${confirmPayAll.dealIds.length} unpaid deal${confirmPayAll.dealIds.length!==1?"s":""}.`}
           confirmLabel="Confirm Payment"
           onConfirm={()=>{ onPayAllDeals(confirmPayAll.dealIds, confirmPayAll.workerName); setConfirmPayAll(null); }}
           onCancel={()=>setConfirmPayAll(null)}
@@ -3160,8 +3238,9 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
     return matchQ && matchT && matchS && passesActiveRule;
   });
 
-  const totalValue    = deals.reduce((s,d)=>s+(d.value||0),0);
-  const priorityCount = deals.filter(d=>d.dealType==="Priority").length;
+  const activeDeals    = deals.filter(d => !isInactiveStage(d));
+  const totalValue     = activeDeals.reduce((s,d)=>s+(d.value||0),0);
+  const priorityCount  = activeDeals.filter(d=>d.dealType==="Priority").length;
 
   return (
     <div style={{ padding:"20px 16px 32px", maxWidth:900, margin:"0 auto", width:"100%" }}>
@@ -3180,16 +3259,26 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
 
       {/* KPI strip */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:8, marginBottom:20 }}>
-        {[
-          { label:"TOTAL VALUE",   val:fmt$(totalValue),  color:C.goldDark },
-          { label:"TOTAL DEALS",   val:deals.length,      color:C.info },
-          { label:"PRIORITY",      val:priorityCount,     color:C.danger },
-        ].map((k,i)=>(
-          <div key={i} style={{ background:"white", borderRadius:12, padding:"12px 10px", border:`1px solid ${C.ivoryDark}`, borderTop:`3px solid ${k.color}`, textAlign:"center" }}>
-            <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>{k.label}</div>
-            <div style={{ fontSize:16, fontWeight:"bold", fontFamily:"Georgia, serif", color:k.color, marginTop:4 }}>{k.val}</div>
+        <div style={{ background:"white", borderRadius:12, padding:"12px 10px", border:`1px solid ${C.ivoryDark}`, borderTop:`3px solid ${C.goldDark}`, textAlign:"center" }}>
+          <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>TOTAL VALUE</div>
+          <div style={{ fontSize:16, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.goldDark, marginTop:4 }}>{fmt$(totalValue)}</div>
+          <div style={{ fontSize:9, color:"#ccc", marginTop:2 }}>open deals only</div>
+        </div>
+        <div style={{ background:"white", borderRadius:12, padding:"12px 10px", border:`1px solid ${C.ivoryDark}`, borderTop:`3px solid ${C.info}`, textAlign:"center" }}>
+          <div style={{ fontSize:8, color:"#aaa", letterSpacing:1.5 }}>TOTAL DEALS</div>
+          <div style={{ fontSize:16, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.info, marginTop:4 }}>{activeDeals.length}</div>
+          <div style={{ fontSize:9, color:"#ccc", marginTop:2 }}>open deals only</div>
+        </div>
+        <button onClick={() => setType(typeFilter === "Priority" ? "all" : "Priority")} className="btn-transition"
+          style={{ background: typeFilter === "Priority" ? `${C.danger}18` : "white", borderRadius:12, padding:"12px 10px",
+            border:`1.5px solid ${typeFilter === "Priority" ? C.danger : C.ivoryDark}`, borderTop:`3px solid ${C.danger}`,
+            textAlign:"center", cursor:"pointer", display:"block", width:"100%" }}>
+          <div style={{ fontSize:8, color: typeFilter === "Priority" ? C.danger : "#aaa", letterSpacing:1.5 }}>PRIORITY</div>
+          <div style={{ fontSize:16, fontWeight:"bold", fontFamily:"Georgia, serif", color:C.danger, marginTop:4 }}>{priorityCount}</div>
+          <div style={{ fontSize:9, color: typeFilter === "Priority" ? C.danger : "#ccc", marginTop:2 }}>
+            {typeFilter === "Priority" ? "▴ filtering now" : "tap to filter"}
           </div>
-        ))}
+        </button>
       </div>
 
       {/* Filters */}
@@ -3586,4 +3675,4 @@ export default function App() {
       </div>
     </>
   );
-                    }
+    }
