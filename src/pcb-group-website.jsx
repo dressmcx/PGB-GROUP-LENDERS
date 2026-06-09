@@ -427,17 +427,21 @@ function Header({ user, onLogout, onHome, onMenuToggle, sidebarOpen }) {
 // SIDEBAR
 // ─────────────────────────────────────────────────────────────
 function Sidebar({ activeNav, onNavigate, isOpen, onClose, userRole }) {
-  const mainLinks = [
-    { id: "dashboard",  label: "Dashboard", icon: "◈" },
-    { id: "clients",    label: "Contacts",  icon: "👤" },
-    { id: "orgs",       label: "Orgs",      icon: "🏢" },
-    { id: "deals",      label: "Deals",     icon: "🤝" },
-    { id: "categories", label: "Lenders",   icon: "⊞" },
-    ...(userRole === "manager" ? [
-      { id: "workers",  label: "Workers",   icon: "📊" },
-      { id: "settings", label: "Settings",  icon: "⚙" },
-    ] : []),
-  ];
+  const mainLinks = userRole === "associate_broker"
+    ? [
+        { id: "categories", label: "Lenders", icon: "⊞" },
+      ]
+    : [
+        { id: "dashboard",  label: "Dashboard", icon: "◈" },
+        { id: "clients",    label: "Contacts",  icon: "👤" },
+        { id: "orgs",       label: "Orgs",      icon: "🏢" },
+        { id: "deals",      label: "Deals",     icon: "🤝" },
+        { id: "categories", label: "Lenders",   icon: "⊞" },
+        ...(userRole === "manager" ? [
+          { id: "workers",  label: "Workers",   icon: "📊" },
+          { id: "settings", label: "Settings",  icon: "⚙" },
+        ] : []),
+      ];
 
   return (
     <>
@@ -680,27 +684,44 @@ function TermsFileField({ label = "Terms & Conditions (PDF / Image)", fileData, 
         </div>
         {fileName && (
           <div ref={menuRef} style={{ position: "relative", flexShrink: 0 }}>
-            <button onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
+            <button onClick={e => {
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                setMenuOpen(v => !v);
+                // store coords for fixed dropdown
+                if (!menuOpen) {
+                  e.currentTarget.dataset.top = rect.bottom + window.scrollY + 6;
+                  e.currentTarget.dataset.right = window.innerWidth - rect.right;
+                }
+              }}
+              data-menu-btn="true"
               style={{ background: "none", border: `1px solid ${C.ivoryDark}`, borderRadius: 8, cursor: "pointer", color: "#666", fontSize: 16, padding: "4px 9px", lineHeight: 1, letterSpacing: 1 }}>
               ⋯
             </button>
-            {menuOpen && (
-              <div className="anim-fade" style={{
-                position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 500,
-                background: "white", borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-                border: `1px solid ${C.ivoryDark}`, minWidth: 130, overflow: "hidden",
-              }}>
-                <button onClick={e => { e.stopPropagation(); setMenuOpen(false); ref.current?.click(); }}
-                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
-                  🔄 Replace
-                </button>
-                <div style={{ height: 1, background: C.ivory }} />
-                <button onClick={e => { e.stopPropagation(); setMenuOpen(false); setConfirmDelete(true); }}
-                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.danger, textAlign: "left", fontFamily: "Georgia, serif" }}>
-                  🗑 Delete
-                </button>
-              </div>
-            )}
+            {menuOpen && (() => {
+              const btn = menuRef.current?.querySelector('[data-menu-btn]');
+              const rect = btn ? btn.getBoundingClientRect() : { bottom: 0, right: 0 };
+              return (
+                <div className="anim-fade" style={{
+                  position: "fixed",
+                  top: rect.bottom + window.scrollY + 6,
+                  right: window.innerWidth - rect.right,
+                  zIndex: 9999,
+                  background: "white", borderRadius: 10, boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
+                  border: `1px solid ${C.ivoryDark}`, minWidth: 130, overflow: "hidden",
+                }}>
+                  <button onClick={e => { e.stopPropagation(); setMenuOpen(false); ref.current?.click(); }}
+                    style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                    🔄 Replace
+                  </button>
+                  <div style={{ height: 1, background: C.ivory }} />
+                  <button onClick={e => { e.stopPropagation(); setMenuOpen(false); setConfirmDelete(true); }}
+                    style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.danger, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                    🗑 Delete
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         )}
         <input ref={ref} type="file" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp" style={{ display: "none" }} onChange={handleFile} />
@@ -857,6 +878,7 @@ function ContactFileManager({ value, onChange }) {
   const [confirmDel, setConfirmDel]        = useState(null); // {type:'folder'|'file', id, folderId?}
   const [draggingOver, setDraggingOver]    = useState(false);
   const [menuOpenId, setMenuOpenId]        = useState(null); // id of row with open dropdown
+  const [menuPos,    setMenuPos]           = useState({ top: 0, left: 0 }); // for fixed positioning
   const uploadRef                          = useRef();
   const renameRef                          = useRef();
   const menuRef                            = useRef();
@@ -1121,14 +1143,19 @@ function ContactFileManager({ value, onChange }) {
                 <>
                   <button title="Open" style={S.iconBtn(C.goldDark)} onClick={() => setActiveFolderId(folder.id)}>›</button>
                   <div ref={menuOpenId === folder.id ? menuRef : null} style={{ position: "relative", flexShrink: 0 }}>
-                    <button title="Options" onClick={e => { e.stopPropagation(); setMenuOpenId(menuOpenId === folder.id ? null : folder.id); }}
+                    <button title="Options" onClick={e => {
+                        e.stopPropagation();
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setMenuPos({ top: rect.bottom + window.scrollY + 4, left: rect.right + window.scrollX - 140 });
+                        setMenuOpenId(menuOpenId === folder.id ? null : folder.id);
+                      }}
                       style={{ ...S.iconBtn("#666"), border: `1px solid ${C.ivoryDark}`, borderRadius: 7, padding: "3px 8px", fontSize: 15, letterSpacing: 1 }}>
                       ⋯
                     </button>
                     {menuOpenId === folder.id && (
                       <div className="anim-fade" style={{
-                        position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 500,
-                        background: "white", borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                        position: "fixed", top: menuPos.top, left: Math.max(8, menuPos.left), zIndex: 9999,
+                        background: "white", borderRadius: 10, boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
                         border: `1px solid ${C.ivoryDark}`, minWidth: 140, overflow: "hidden",
                       }}>
                         <button onClick={e => { e.stopPropagation(); setMenuOpenId(null); setRenamingId(folder.id); setRenameVal(folder.name); }}
@@ -1174,14 +1201,18 @@ function ContactFileManager({ value, onChange }) {
               <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", marginRight: 4 }}>{fmtSize(file.size)}</span>
               {renamingId !== file.id && (
                 <div ref={menuOpenId === file.id ? menuRef : null} style={{ position: "relative", flexShrink: 0 }}>
-                  <button title="Options" onClick={() => setMenuOpenId(menuOpenId === file.id ? null : file.id)}
+                  <button title="Options" onClick={e => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setMenuPos({ top: rect.bottom + window.scrollY + 4, left: rect.right + window.scrollX - 150 });
+                      setMenuOpenId(menuOpenId === file.id ? null : file.id);
+                    }}
                     style={{ ...S.iconBtn("#666"), border: `1px solid ${C.ivoryDark}`, borderRadius: 7, padding: "3px 8px", fontSize: 15, letterSpacing: 1 }}>
                     ⋯
                   </button>
                   {menuOpenId === file.id && (
                     <div className="anim-fade" style={{
-                      position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 500,
-                      background: "white", borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                      position: "fixed", top: menuPos.top, left: Math.max(8, menuPos.left), zIndex: 9999,
+                      background: "white", borderRadius: 10, boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
                       border: `1px solid ${C.ivoryDark}`, minWidth: 150, overflow: "hidden",
                     }}>
                       {(isImage(file) || isPdf(file)) && (
@@ -1804,6 +1835,14 @@ function LenderCard({ lender, onEdit, onDelete }) {
               <div><div style={fieldLabel}>TYPE</div><div style={{ color: C.charcoal, fontSize: 13 }}>{lender.lenderType}</div></div>
               <div><div style={fieldLabel}>MIN LOAN</div><div style={{ color: C.charcoal, fontSize: 13 }}>${(lender.minLoan/1e6).toFixed(1)}M</div></div>
               <div><div style={fieldLabel}>MAX LOAN</div><div style={{ color: C.charcoal, fontSize: 13 }}>${(lender.maxLoan/1e6).toFixed(1)}M</div></div>
+              {lender.createdBy && (
+                <div>
+                  <div style={fieldLabel}>CREATED BY</div>
+                  <div style={{ color: C.charcoal, fontSize: 13, display: "flex", alignItems: "center", gap: 5 }}>
+                    <span>👤</span> {lender.createdBy}
+                  </div>
+                </div>
+              )}
             </div>
             {lender.notes && (
               <div style={{ marginTop: 14, background: C.bg, borderRadius: 10, padding: "12px 14px" }}>
@@ -1976,7 +2015,7 @@ function SearchView({ lenders, onEdit, onDelete }) {
 // ─────────────────────────────────────────────────────────────
 // LENDER FORM
 // ─────────────────────────────────────────────────────────────
-function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCancel }) {
+function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCancel, currentUser }) {
   const initCategory = initial?.category || defaultCategory || "Permanent";
   const [form, setForm] = useState(initial ? {
     ...initial,
@@ -1992,6 +2031,7 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
     termsFileName: "",
     termsFileData: null,
     notes: "", rate: "", minLoan: "", maxLoan: "",
+    createdBy: currentUser?.name || "",
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -2062,6 +2102,23 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
             onChange={f => setForm(prev => ({ ...prev, termsFileName: f ? f.name : "", termsFileData: f ? f.data : null }))}
             span2
           />
+
+          {/* Created By — auto-filled, read-only for new lenders */}
+          <div style={{ gridColumn: "1/-1" }}>
+            <div style={fieldLabel}>CREATED BY</div>
+            <div style={{
+              ...inputStyle,
+              background: "#f8f6f2",
+              color: "#888",
+              display: "flex", alignItems: "center", gap: 8,
+              cursor: "default",
+            }}>
+              <span style={{ fontSize: 14 }}>👤</span>
+              <span style={{ fontSize: 13 }}>{form.createdBy || "—"}</span>
+              {!initial && <span style={{ marginLeft: "auto", fontSize: 10, color: "#bbb", letterSpacing: 1 }}>AUTO-FILLED</span>}
+            </div>
+          </div>
+
           <FormField label="Notes" value={form.notes} onChange={v => set("notes", v)} textarea span2 />
         </div>
         <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
@@ -2423,6 +2480,7 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
               <select value={form.role} onChange={e => setF("role", e.target.value)}
                 style={{ ...inputStyle, cursor: "pointer", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}>
                 <option value="worker">Regular Worker</option>
+                <option value="associate_broker">Associate Broker</option>
                 <option value="manager">Manager</option>
               </select>
             </div>
@@ -2449,6 +2507,8 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
         <div style={{ marginTop: 14, background: C.bg, borderRadius: 10, padding: "12px 14px", fontSize: 12, color: "#777", lineHeight: 1.7 }}>
           {form.role === "manager"
             ? "✦ Manager — Full access: Dashboard, financial data, lenders, clients, settings & worker management."
+            : form.role === "associate_broker"
+            ? "✦ Associate Broker — Restricted access: Lenders section only. Cannot view Contacts, Deals, Dashboard, or admin pages."
             : "✦ Regular Worker — Restricted access: Can view, add & manage Lenders and Clients only. No Dashboard or admin access."}
         </div>
 
@@ -2478,9 +2538,9 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
               <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
                 <div style={{
                   width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
-                  background: w.role === "manager" ? `${C.goldDark}22` : "#F3F4F6",
+                  background: w.role === "manager" ? `${C.goldDark}22` : w.role === "associate_broker" ? `${C.info}22` : "#F3F4F6",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 15, color: w.role === "manager" ? C.goldDark : "#6B7280", fontWeight: "bold",
+                  fontSize: 15, color: w.role === "manager" ? C.goldDark : w.role === "associate_broker" ? C.info : "#6B7280", fontWeight: "bold",
                 }}>
                   {w.name.charAt(0).toUpperCase()}
                 </div>
@@ -2496,11 +2556,11 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                 <span style={{
                   fontSize: 9, letterSpacing: 1, padding: "4px 10px", borderRadius: 10,
-                  background: w.role === "manager" ? `${C.goldDark}18` : "#F3F4F6",
-                  color: w.role === "manager" ? C.goldDark : "#6B7280",
-                  border: `1px solid ${w.role === "manager" ? C.goldDark + "44" : "#E5E7EB"}`,
+                  background: w.role === "manager" ? `${C.goldDark}18` : w.role === "associate_broker" ? `${C.info}18` : "#F3F4F6",
+                  color: w.role === "manager" ? C.goldDark : w.role === "associate_broker" ? C.info : "#6B7280",
+                  border: `1px solid ${w.role === "manager" ? C.goldDark + "44" : w.role === "associate_broker" ? C.info + "44" : "#E5E7EB"}`,
                 }}>
-                  {w.role === "manager" ? "MANAGER" : "WORKER"}
+                  {w.role === "manager" ? "MANAGER" : w.role === "associate_broker" ? "ASSOC. BROKER" : "WORKER"}
                 </span>
                 {w.commission && (
                   <span style={{
@@ -2512,49 +2572,60 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
                   </span>
                 )}
                 <div style={{ position: "relative" }} ref={openMenuId === w.id ? menuRef : null}>
-                  <button onClick={() => setOpenMenuId(openMenuId === w.id ? null : w.id)} className="btn-transition"
+                  <button onClick={e => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setOpenMenuId(openMenuId === w.id ? null : w.id);
+                      if (openMenuId !== w.id) {
+                        e.currentTarget.dataset.top  = rect.bottom + window.scrollY + 6;
+                        e.currentTarget.dataset.right = window.innerWidth - rect.right;
+                      }
+                    }} className="btn-transition"
+                    data-worker-menu-btn="true"
                     style={{ background: "none", border: "none", cursor: "pointer", color: "#888", fontSize: 18, lineHeight: 1, padding: "2px 6px", fontWeight: "bold" }}>
                     ···
                   </button>
-                  {openMenuId === w.id && (
-                    <div className="anim-fade" style={{
-                      position: "absolute",
-                      top: "100%",
-                      right: 0,
-                      background: "white",
-                      border: `1px solid ${C.ivoryDark}`,
-                      borderRadius: 8,
-                      boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
-                      zIndex: 10000,
-                      minWidth: 140,
-                      overflow: "hidden",
-                      marginTop: 6,
-                    }}>
-                      <button onClick={() => { /* Edit handler */ setOpenMenuId(null); }}
-                        style={{
-                          width: "100%", padding: "10px 16px", background: "none", border: "none",
-                          cursor: "pointer", fontSize: 13, color: C.charcoal,
-                          textAlign: "left", transition: "all 0.15s",
-                          borderBottom: `1px solid ${C.ivory}`,
-                        }}
-                        onMouseEnter={e => e.target.style.background = C.bg}
-                        onMouseLeave={e => e.target.style.background = "none"}
-                      >
-                        ✏️ Edit
-                      </button>
-                      <button onClick={() => { setConfirmDel(w); setOpenMenuId(null); }}
-                        style={{
-                          width: "100%", padding: "10px 16px", background: "none", border: "none",
-                          cursor: "pointer", fontSize: 13, color: C.danger,
-                          textAlign: "left", transition: "all 0.15s",
-                        }}
-                        onMouseEnter={e => e.target.style.background = "#FEF0EF"}
-                        onMouseLeave={e => e.target.style.background = "none"}
-                      >
-                        🗑 Delete
-                      </button>
-                    </div>
-                  )}
+                  {openMenuId === w.id && (() => {
+                    const btn = menuRef.current?.querySelector('[data-worker-menu-btn]');
+                    const rect = btn ? btn.getBoundingClientRect() : { bottom: 0, right: 0 };
+                    return (
+                      <div className="anim-fade" style={{
+                        position: "fixed",
+                        top: rect.bottom + window.scrollY + 6,
+                        right: window.innerWidth - rect.right,
+                        background: "white",
+                        border: `1px solid ${C.ivoryDark}`,
+                        borderRadius: 8,
+                        boxShadow: "0 4px 24px rgba(0,0,0,0.16)",
+                        zIndex: 9999,
+                        minWidth: 140,
+                        overflow: "hidden",
+                      }}>
+                        <button onClick={() => { /* Edit handler */ setOpenMenuId(null); }}
+                          style={{
+                            width: "100%", padding: "10px 16px", background: "none", border: "none",
+                            cursor: "pointer", fontSize: 13, color: C.charcoal,
+                            textAlign: "left", transition: "all 0.15s",
+                            borderBottom: `1px solid ${C.ivory}`,
+                          }}
+                          onMouseEnter={e => e.target.style.background = C.bg}
+                          onMouseLeave={e => e.target.style.background = "none"}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button onClick={() => { setConfirmDel(w); setOpenMenuId(null); }}
+                          style={{
+                            width: "100%", padding: "10px 16px", background: "none", border: "none",
+                            cursor: "pointer", fontSize: 13, color: C.danger,
+                            textAlign: "left", transition: "all 0.15s",
+                          }}
+                          onMouseEnter={e => e.target.style.background = "#FEF0EF"}
+                          onMouseLeave={e => e.target.style.background = "none"}
+                        >
+                          🗑 Delete
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -3437,7 +3508,7 @@ export default function App() {
   const [addOrgInline,      setAddOrgInline]     = useState(null);
 
   // Restrict workers to their allowed views
-  const defaultView = user?.role === "manager" ? "dashboard" : "clients";
+  const defaultView = user?.role === "manager" ? "dashboard" : user?.role === "associate_broker" ? "categories" : "clients";
 
   const activeNav = ["dashboard","clients","orgs","deals","search","settings","workers","categories","location","lenders","form"].includes(view) ? (["categories","location","lenders","form"].includes(view) ? "categories" : view) : "categories";
 
@@ -3445,6 +3516,8 @@ export default function App() {
     setSidebarOpen(false);
     // Workers cannot access dashboard or settings
     if (user?.role !== "manager" && (id === "dashboard" || id === "settings" || id === "workers")) return;
+    // Associate brokers can only access lenders
+    if (user?.role === "associate_broker" && (id === "clients" || id === "orgs" || id === "deals" || id === "search")) return;
     if (id === "dashboard") setView("dashboard");
     else if (id === "clients") setView("clients");
     else if (id === "orgs") setView("orgs");
@@ -3470,9 +3543,9 @@ export default function App() {
       maxLoan: parseInt(form.maxLoan) || 0,
     };
     if (formMode === "edit") {
-      setLenders(ls => ls.map(l => l.id === editingLender.id ? { ...cleanedForm, id: editingLender.id } : l));
+      setLenders(ls => ls.map(l => l.id === editingLender.id ? { ...cleanedForm, id: editingLender.id, createdBy: l.createdBy || cleanedForm.createdBy } : l));
     } else {
-      const newLender = { ...cleanedForm, id: Date.now() };
+      const newLender = { ...cleanedForm, id: Date.now(), createdBy: cleanedForm.createdBy || user?.name || "" };
       setLenders(ls => [...ls, newLender]);
       setSelectedCategory(cleanedForm.category || selectedCategory);
       setSelectedLocation(cleanedForm.location  || "All Locations");
@@ -3549,7 +3622,9 @@ export default function App() {
 
   const handleLogin = loggedInUser => {
     setUser(loggedInUser);
-    setView(loggedInUser.role === "manager" ? "dashboard" : "clients");
+    if (loggedInUser.role === "manager") setView("dashboard");
+    else if (loggedInUser.role === "associate_broker") setView("categories");
+    else setView("clients");
   };
 
   if (splash) return (
@@ -3569,7 +3644,7 @@ export default function App() {
     switch (view) {
       case "form":
         return <LenderForm initial={editingLender} defaultCategory={selectedCategory} defaultLocation={selectedLocation}
-          onSave={handleLenderSave} onCancel={() => setView("lenders")} />;
+          onSave={handleLenderSave} onCancel={() => setView("lenders")} currentUser={user} />;
       case "search":
         return <SearchView lenders={lenders} onEdit={handleLenderEdit} onDelete={handleLenderDelete} />;
       case "lenders":
@@ -3599,6 +3674,7 @@ export default function App() {
           onPayAllDeals={(dealIds, workerName) => setDeals(ds => ds.map(d => dealIds.includes(d.id) ? { ...d, paidWorkers: { ...(d.paidWorkers||{}), [workerName]: true } } : d))}
         />;
       default:
+        if (user.role === "associate_broker") return <CategorySelect onSelect={handleCategorySelect} />;
         if (user.role !== "manager") return <ClientsView clients={clients} onAdd={() => { setEditingClient(null); setClientFormOpen(true); }}
           onEdit={handleClientEdit} onDelete={handleClientDelete} />;
         return <Dashboard lenders={lenders} clients={clients} deals={deals} user={user} onCategorySelect={handleCategorySelect} onNavigate={navigate} />;
@@ -3675,4 +3751,4 @@ export default function App() {
       </div>
     </>
   );
-    }
+}
