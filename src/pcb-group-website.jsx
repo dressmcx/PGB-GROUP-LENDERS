@@ -863,8 +863,238 @@ function DealPipeline({ currentStage }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 // FILE MANAGER — desktop-style, folders + files
 // ─────────────────────────────────────────────────────────────
+
+// Self-contained dropdown hook — viewport-relative fixed positioning, no scrollY
+function useRowMenu() {
+  const [open, setOpen]     = useState(false);
+  const [coords, setCoords] = useState({ top: 0, right: 0 });
+  const btnRef              = useRef(null);
+  const dropRef             = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = e => {
+      if (
+        dropRef.current && !dropRef.current.contains(e.target) &&
+        btnRef.current  && !btnRef.current.contains(e.target)
+      ) setOpen(false);
+    };
+    document.addEventListener("mousedown",  close);
+    document.addEventListener("touchstart", close);
+    return () => {
+      document.removeEventListener("mousedown",  close);
+      document.removeEventListener("touchstart", close);
+    };
+  }, [open]);
+
+  const openMenu = e => {
+    e.stopPropagation();
+    const rect  = btnRef.current.getBoundingClientRect();
+    // position:fixed is viewport-relative — no scrollY/X needed
+    const top   = rect.bottom + 4;
+    const right = Math.max(8, window.innerWidth - rect.right);
+    setCoords({ top, right });
+    setOpen(v => !v);
+  };
+
+  return { open, setOpen, coords, btnRef, dropRef, openMenu };
+}
+
+// Folder row — self-contained so menu ref/position are isolated
+function FmFolderRow({ folder, iconBtn, ivoryDark, onOpen, onRename, onDelete, renamingId, renameVal, setRenameVal, renameRef, setRenamingId, renameFolder }) {
+  const menu = useRowMenu();
+  const S_row = {
+    display: "flex", alignItems: "center", gap: 10,
+    padding: "9px 12px", borderRadius: 9,
+    background: "white",
+    border: `1px solid ${C.ivoryDark}`,
+    marginBottom: 6, cursor: "pointer",
+    transition: "all 0.15s",
+  };
+  return (
+    <div style={S_row}>
+      <span style={{ fontSize: 18, flexShrink: 0 }}>📁</span>
+      {renamingId === folder.id ? (
+        <input
+          ref={renameRef}
+          value={renameVal}
+          onChange={e => setRenameVal(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter") renameFolder(folder.id, renameVal.trim() || folder.name);
+            if (e.key === "Escape") setRenamingId(null);
+          }}
+          onBlur={() => renameFolder(folder.id, renameVal.trim() || folder.name)}
+          style={{ flex: 1, padding: "5px 10px", fontSize: 13, border: `1.5px solid ${C.ivoryDark}`, borderRadius: 8, background: C.bg, fontFamily: "Georgia, serif", outline: "none" }}
+          onClick={e => e.stopPropagation()}
+        />
+      ) : (
+        <span onClick={() => onOpen(folder.id)}
+          style={{ flex: 1, fontSize: 13, color: C.charcoal, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {folder.name}
+        </span>
+      )}
+      <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", marginRight: 4 }}>
+        {folder.files.length} item{folder.files.length !== 1 ? "s" : ""}
+      </span>
+      {renamingId !== folder.id && (
+        <>
+          <button title="Open" style={iconBtn(C.goldDark)} onClick={() => onOpen(folder.id)}>›</button>
+          {/* ··· button */}
+          <button
+            ref={menu.btnRef}
+            title="Options"
+            onClick={menu.openMenu}
+            style={{
+              ...iconBtn("#666"),
+              border: `1px solid ${C.ivoryDark}`,
+              borderRadius: 7,
+              padding: "3px 9px",
+              fontSize: 15,
+              letterSpacing: 1,
+              background: menu.open ? C.bg : "none",
+            }}
+          >⋯</button>
+          {/* Dropdown */}
+          {menu.open && (
+            <div
+              ref={menu.dropRef}
+              className="anim-fade"
+              style={{
+                position: "fixed",
+                top: menu.coords.top,
+                right: menu.coords.right,
+                zIndex: 99999,
+                background: "white",
+                borderRadius: 10,
+                boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)",
+                border: `1px solid ${C.ivoryDark}`,
+                minWidth: 150,
+                overflow: "hidden",
+              }}
+            >
+              <button
+                onClick={e => { e.stopPropagation(); menu.setOpen(false); onRename(folder); }}
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif", borderBottom: `1px solid ${C.ivory}` }}
+                onMouseEnter={e => e.currentTarget.style.background = C.bg}
+                onMouseLeave={e => e.currentTarget.style.background = "none"}
+              ><span>✏️</span> Rename</button>
+              <button
+                onClick={e => { e.stopPropagation(); menu.setOpen(false); onDelete(folder); }}
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.danger, textAlign: "left", fontFamily: "Georgia, serif" }}
+                onMouseEnter={e => e.currentTarget.style.background = `${C.danger}0D`}
+                onMouseLeave={e => e.currentTarget.style.background = "none"}
+              ><span>🗑</span> Delete</button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// File row — self-contained so menu ref/position are isolated
+function FmFileRow({ file, activeFolderId, iconBtn, fmtSize, fileIcon, isImage, isPdf, onPreview, onRename, onDelete, renamingId, renameVal, setRenameVal, renameRef, setRenamingId, renameFile }) {
+  const menu = useRowMenu();
+  const S_row = {
+    display: "flex", alignItems: "center", gap: 10,
+    padding: "8px 12px", borderRadius: 9,
+    background: "white", border: `1px solid ${C.ivoryDark}`,
+    marginBottom: 6, transition: "all 0.15s",
+  };
+  return (
+    <div style={S_row}>
+      <span style={{ fontSize: 18, flexShrink: 0 }}>{fileIcon(file)}</span>
+      {renamingId === file.id ? (
+        <input
+          ref={renameRef}
+          value={renameVal}
+          onChange={e => setRenameVal(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter") renameFile(file.id, activeFolderId, renameVal.trim() || file.name);
+            if (e.key === "Escape") setRenamingId(null);
+          }}
+          onBlur={() => renameFile(file.id, activeFolderId, renameVal.trim() || file.name)}
+          style={{ flex: 1, padding: "5px 10px", fontSize: 13, border: `1.5px solid ${C.ivoryDark}`, borderRadius: 8, background: C.bg, fontFamily: "Georgia, serif", outline: "none" }}
+          onClick={e => e.stopPropagation()}
+        />
+      ) : (
+        <span style={{ flex: 1, fontSize: 13, color: C.charcoal, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={file.name}>
+          {file.name}
+        </span>
+      )}
+      <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", marginRight: 4 }}>{fmtSize(file.size)}</span>
+      {renamingId !== file.id && (
+        <>
+          {/* ··· button */}
+          <button
+            ref={menu.btnRef}
+            title="Options"
+            onClick={menu.openMenu}
+            style={{
+              ...iconBtn("#666"),
+              border: `1px solid ${C.ivoryDark}`,
+              borderRadius: 7,
+              padding: "3px 9px",
+              fontSize: 15,
+              letterSpacing: 1,
+              background: menu.open ? C.bg : "none",
+            }}
+          >⋯</button>
+          {/* Dropdown */}
+          {menu.open && (
+            <div
+              ref={menu.dropRef}
+              className="anim-fade"
+              style={{
+                position: "fixed",
+                top: menu.coords.top,
+                right: menu.coords.right,
+                zIndex: 99999,
+                background: "white",
+                borderRadius: 10,
+                boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)",
+                border: `1px solid ${C.ivoryDark}`,
+                minWidth: 155,
+                overflow: "hidden",
+              }}
+            >
+              {(isImage(file) || isPdf(file)) && (
+                <button
+                  onClick={() => { menu.setOpen(false); onPreview(file); }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif", borderBottom: `1px solid ${C.ivory}` }}
+                  onMouseEnter={e => e.currentTarget.style.background = C.bg}
+                  onMouseLeave={e => e.currentTarget.style.background = "none"}
+                ><span>👁</span> View</button>
+              )}
+              <button
+                onClick={() => { menu.setOpen(false); const a = document.createElement("a"); a.href = file.data; a.download = file.name; a.click(); }}
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif", borderBottom: `1px solid ${C.ivory}` }}
+                onMouseEnter={e => e.currentTarget.style.background = C.bg}
+                onMouseLeave={e => e.currentTarget.style.background = "none"}
+              ><span>⬇</span> Download</button>
+              <button
+                onClick={() => { menu.setOpen(false); onRename(file); }}
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif", borderBottom: `1px solid ${C.ivory}` }}
+                onMouseEnter={e => e.currentTarget.style.background = C.bg}
+                onMouseLeave={e => e.currentTarget.style.background = "none"}
+              ><span>✏️</span> Rename</button>
+              <button
+                onClick={() => { menu.setOpen(false); onDelete(file); }}
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.danger, textAlign: "left", fontFamily: "Georgia, serif" }}
+                onMouseEnter={e => e.currentTarget.style.background = `${C.danger}0D`}
+                onMouseLeave={e => e.currentTarget.style.background = "none"}
+              ><span>🗑</span> Delete</button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function ContactFileManager({ value, onChange }) {
   // value: { folders: [{id, name, files:[{id,name,type,size,data,uploadedAt}]}], rootFiles:[...] }
   const init = value || { folders: [], rootFiles: [] };
@@ -877,19 +1107,8 @@ function ContactFileManager({ value, onChange }) {
   const [previewFile, setPreviewFile]      = useState(null);
   const [confirmDel, setConfirmDel]        = useState(null); // {type:'folder'|'file', id, folderId?}
   const [draggingOver, setDraggingOver]    = useState(false);
-  const [menuOpenId, setMenuOpenId]        = useState(null); // id of row with open dropdown
-  const [menuPos,    setMenuPos]           = useState({ top: 0, left: 0 }); // for fixed positioning
   const uploadRef                          = useRef();
   const renameRef                          = useRef();
-  const menuRef                            = useRef();
-
-  // Close dropdown menu on outside click
-  useEffect(() => {
-    if (!menuOpenId) return;
-    const handler = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpenId(null); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [menuOpenId]);
 
   // Sync up to parent whenever fs changes
   useEffect(() => { onChange(fs); }, [fs]);
@@ -1118,131 +1337,43 @@ function ContactFileManager({ value, onChange }) {
 
           {/* Folders (only visible at root) */}
           {!activeFolderId && fs.folders.map(folder => (
-            <div key={folder.id} style={S.folderRow(false)}>
-              <span style={{ fontSize: 18, flexShrink: 0 }}>📁</span>
-              {renamingId === folder.id ? (
-                <input
-                  ref={renameRef}
-                  value={renameVal}
-                  onChange={e => setRenameVal(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") renameFolder(folder.id, renameVal.trim() || folder.name); if (e.key === "Escape") setRenamingId(null); }}
-                  onBlur={() => renameFolder(folder.id, renameVal.trim() || folder.name)}
-                  style={{ ...inputStyle, flex: 1, padding: "5px 10px", fontSize: 13 }}
-                  onClick={e => e.stopPropagation()}
-                />
-              ) : (
-                <span onClick={() => setActiveFolderId(folder.id)}
-                  style={{ flex: 1, fontSize: 13, color: C.charcoal, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {folder.name}
-                </span>
-              )}
-              <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", marginRight: 4 }}>
-                {folder.files.length} item{folder.files.length !== 1 ? "s" : ""}
-              </span>
-              {renamingId !== folder.id && (
-                <>
-                  <button title="Open" style={S.iconBtn(C.goldDark)} onClick={() => setActiveFolderId(folder.id)}>›</button>
-                  <div ref={menuOpenId === folder.id ? menuRef : null} style={{ position: "relative", flexShrink: 0 }}>
-                    <button title="Options" onClick={e => {
-                        e.stopPropagation();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setMenuPos({ top: rect.bottom + window.scrollY + 4, left: rect.right + window.scrollX - 140 });
-                        setMenuOpenId(menuOpenId === folder.id ? null : folder.id);
-                      }}
-                      style={{ ...S.iconBtn("#666"), border: `1px solid ${C.ivoryDark}`, borderRadius: 7, padding: "3px 8px", fontSize: 15, letterSpacing: 1 }}>
-                      ⋯
-                    </button>
-                    {menuOpenId === folder.id && (
-                      <div className="anim-fade" style={{
-                        position: "fixed", top: menuPos.top, left: Math.max(8, menuPos.left), zIndex: 9999,
-                        background: "white", borderRadius: 10, boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
-                        border: `1px solid ${C.ivoryDark}`, minWidth: 140, overflow: "hidden",
-                      }}>
-                        <button onClick={e => { e.stopPropagation(); setMenuOpenId(null); setRenamingId(folder.id); setRenameVal(folder.name); }}
-                          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
-                          ✏️ Rename
-                        </button>
-                        <div style={{ height: 1, background: C.ivory }} />
-                        <button onClick={e => { e.stopPropagation(); setMenuOpenId(null); setConfirmDel({ type: "folder", id: folder.id }); }}
-                          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.danger, textAlign: "left", fontFamily: "Georgia, serif" }}>
-                          🗑 Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+            <FmFolderRow
+              key={folder.id}
+              folder={folder}
+              iconBtn={S.iconBtn}
+              onOpen={id => setActiveFolderId(id)}
+              onRename={f => { setRenamingId(f.id); setRenameVal(f.name); }}
+              onDelete={f => setConfirmDel({ type: "folder", id: f.id })}
+              renamingId={renamingId}
+              renameVal={renameVal}
+              setRenameVal={setRenameVal}
+              renameRef={renameRef}
+              setRenamingId={setRenamingId}
+              renameFolder={renameFolder}
+            />
           ))}
 
           {/* Files in current location */}
           {currentFiles.map(file => (
-            <div key={file.id} style={S.fileRow}>
-              <span style={{ fontSize: 18, flexShrink: 0 }}>{fileIcon(file)}</span>
-              {renamingId === file.id ? (
-                <input
-                  ref={renameRef}
-                  value={renameVal}
-                  onChange={e => setRenameVal(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === "Enter") renameFile(file.id, activeFolderId, renameVal.trim() || file.name);
-                    if (e.key === "Escape") setRenamingId(null);
-                  }}
-                  onBlur={() => renameFile(file.id, activeFolderId, renameVal.trim() || file.name)}
-                  style={{ ...inputStyle, flex: 1, padding: "5px 10px", fontSize: 13 }}
-                  onClick={e => e.stopPropagation()}
-                />
-              ) : (
-                <span style={{ flex: 1, fontSize: 13, color: C.charcoal, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                  title={file.name}>
-                  {file.name}
-                </span>
-              )}
-              <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", marginRight: 4 }}>{fmtSize(file.size)}</span>
-              {renamingId !== file.id && (
-                <div ref={menuOpenId === file.id ? menuRef : null} style={{ position: "relative", flexShrink: 0 }}>
-                  <button title="Options" onClick={e => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setMenuPos({ top: rect.bottom + window.scrollY + 4, left: rect.right + window.scrollX - 150 });
-                      setMenuOpenId(menuOpenId === file.id ? null : file.id);
-                    }}
-                    style={{ ...S.iconBtn("#666"), border: `1px solid ${C.ivoryDark}`, borderRadius: 7, padding: "3px 8px", fontSize: 15, letterSpacing: 1 }}>
-                    ⋯
-                  </button>
-                  {menuOpenId === file.id && (
-                    <div className="anim-fade" style={{
-                      position: "fixed", top: menuPos.top, left: Math.max(8, menuPos.left), zIndex: 9999,
-                      background: "white", borderRadius: 10, boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
-                      border: `1px solid ${C.ivoryDark}`, minWidth: 150, overflow: "hidden",
-                    }}>
-                      {(isImage(file) || isPdf(file)) && (
-                        <>
-                          <button onClick={() => { setMenuOpenId(null); setPreviewFile(file); }}
-                            style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
-                            👁 View
-                          </button>
-                          <div style={{ height: 1, background: C.ivory }} />
-                        </>
-                      )}
-                      <button onClick={() => { setMenuOpenId(null); const a = document.createElement("a"); a.href = file.data; a.download = file.name; a.click(); }}
-                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
-                        ⬇ Download
-                      </button>
-                      <div style={{ height: 1, background: C.ivory }} />
-                      <button onClick={() => { setMenuOpenId(null); setRenamingId(file.id); setRenameVal(file.name); }}
-                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
-                        ✏️ Rename
-                      </button>
-                      <div style={{ height: 1, background: C.ivory }} />
-                      <button onClick={() => { setMenuOpenId(null); setConfirmDel({ type: "file", id: file.id, folderId: activeFolderId }); }}
-                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.danger, textAlign: "left", fontFamily: "Georgia, serif" }}>
-                        🗑 Delete
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <FmFileRow
+              key={file.id}
+              file={file}
+              activeFolderId={activeFolderId}
+              iconBtn={S.iconBtn}
+              fmtSize={fmtSize}
+              fileIcon={fileIcon}
+              isImage={isImage}
+              isPdf={isPdf}
+              onPreview={f => setPreviewFile(f)}
+              onRename={f => { setRenamingId(f.id); setRenameVal(f.name); }}
+              onDelete={f => setConfirmDel({ type: "file", id: f.id, folderId: activeFolderId })}
+              renamingId={renamingId}
+              renameVal={renameVal}
+              setRenameVal={setRenameVal}
+              renameRef={renameRef}
+              setRenamingId={setRenamingId}
+              renameFile={renameFile}
+            />
           ))}
 
           {/* Empty state + drop zone */}
@@ -2413,13 +2544,297 @@ function WorkersView({ deals, workers, onPayDeal, onPayAllDeals }) {
 // ─────────────────────────────────────────────────────────────
 // SETTINGS VIEW — Worker Management (Manager only)
 // ─────────────────────────────────────────────────────────────
-function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
-  const blankWorker = { name: "", email: "", password: "", role: "worker", commission: "" };
-  const [form, setForm]         = useState(blankWorker);
+
+// Role description helper — used in both Add form and Edit modal
+function RoleDescription({ role }) {
+  const desc =
+    role === "manager"
+      ? "✦ Manager — Full access: Dashboard, financial data, lenders, clients, settings & worker management."
+      : role === "associate_broker"
+      ? "✦ Associate Broker — Restricted access: Lenders section only. Cannot view Contacts, Deals, Dashboard, or admin pages."
+      : "✦ Regular Worker — Restricted access: Can view, add & manage Lenders and Clients only. No Dashboard or admin access.";
+  return (
+    <div style={{ marginTop: 14, background: C.bg, borderRadius: 10, padding: "12px 14px", fontSize: 12, color: "#777", lineHeight: 1.7 }}>
+      {desc}
+    </div>
+  );
+}
+
+// Edit Worker Modal — inline bottom sheet
+function EditWorkerModal({ worker, onSave, onCancel }) {
+  const [form, setForm]         = useState({ ...worker });
   const [showPass, setShowPass] = useState(false);
-  const [confirmDel, setConfirmDel] = useState(null);
-  const [openMenuId, setOpenMenuId] = useState(null);
-  const menuRef = useRef();
+  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = () => {
+    if (!form.name.trim())     { alert("Name is required."); return; }
+    if (!form.email.trim())    { alert("Email is required."); return; }
+    if (!form.password.trim()) { alert("Password is required."); return; }
+    onSave(form);
+  };
+
+  return (
+    <Modal onClose={onCancel} maxWidth={520}>
+      <div style={{ padding: "24px 20px 36px" }}>
+        {/* Handle */}
+        <div style={{ width: 36, height: 4, background: C.ivoryDark, borderRadius: 2, margin: "0 auto 20px" }} />
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
+          <div>
+            <div style={{ fontSize: 9, color: C.goldDark, letterSpacing: 3, marginBottom: 4 }}>EDIT TEAM MEMBER</div>
+            <h2 style={{ margin: 0, fontSize: 19, fontFamily: "Georgia, serif", fontWeight: "normal", color: C.charcoal }}>
+              {worker.name}
+            </h2>
+          </div>
+          <button onClick={onCancel}
+            style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#aaa", lineHeight: 1, padding: "2px 6px" }}>
+            ×
+          </button>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          {/* Full Name */}
+          <div style={{ gridColumn: "1/-1" }}>
+            <div style={fieldLabel}>FULL NAME <span style={{ color: C.danger }}>*</span></div>
+            <input
+              value={form.name}
+              onChange={e => setF("name", e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Email */}
+          <div style={{ gridColumn: "1/-1" }}>
+            <div style={fieldLabel}>EMAIL ADDRESS <span style={{ color: C.danger }}>*</span></div>
+            <input
+              type="email"
+              value={form.email}
+              onChange={e => setF("email", e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Password */}
+          <div style={{ gridColumn: "1/-1" }}>
+            <div style={fieldLabel}>PASSWORD <span style={{ color: C.danger }}>*</span></div>
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPass ? "text" : "password"}
+                value={form.password}
+                onChange={e => setF("password", e.target.value)}
+                style={{ ...inputStyle, paddingRight: 44 }}
+              />
+              <button type="button" onClick={() => setShowPass(v => !v)}
+                style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#aaa", padding: 0, display: "flex", alignItems: "center" }}>
+                <EyeIcon open={showPass} />
+              </button>
+            </div>
+          </div>
+
+          {/* Role */}
+          <div>
+            <div style={fieldLabel}>ROLE</div>
+            <select
+              value={form.role}
+              onChange={e => setF("role", e.target.value)}
+              style={{
+                ...inputStyle, cursor: "pointer", appearance: "none",
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center",
+              }}
+            >
+              <option value="worker">Regular Worker</option>
+              <option value="associate_broker">Associate Broker</option>
+              <option value="manager">Manager</option>
+            </select>
+          </div>
+
+          {/* Commission */}
+          <div>
+            <div style={fieldLabel}>COMMISSION %</div>
+            <div style={{ position: "relative" }}>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={form.commission}
+                onChange={e => setF("commission", e.target.value)}
+                placeholder="e.g. 1, 2, 2.5"
+                style={{ ...inputStyle, paddingRight: 36 }}
+              />
+              <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "#aaa", fontSize: 14, pointerEvents: "none" }}>%</span>
+            </div>
+          </div>
+        </div>
+
+        <RoleDescription role={form.role} />
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
+          <button onClick={onCancel} className="btn-transition"
+            style={{ flex: 1, padding: "13px", background: "white", border: `1.5px solid ${C.ivoryDark}`, borderRadius: 12, cursor: "pointer", fontSize: 13, color: C.charcoal }}>
+            Cancel
+          </button>
+          <button onClick={handleSave} className="btn-transition"
+            style={{ flex: 2, padding: "13px", background: C.goldDark, color: "white", border: "none", borderRadius: 12, cursor: "pointer", fontSize: 13, fontWeight: "bold", letterSpacing: 1 }}>
+            SAVE CHANGES
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// Individual worker row — uses useRowMenu for consistent, mobile-safe dropdown
+function WorkerRow({ w, onEdit, onDelete }) {
+  const menu = useRowMenu();
+
+  const avatarBg    = w.role === "manager" ? `${C.goldDark}22` : w.role === "associate_broker" ? `${C.info}22` : "#F3F4F6";
+  const avatarColor = w.role === "manager" ? C.goldDark       : w.role === "associate_broker" ? C.info       : "#6B7280";
+  const badgeBg     = w.role === "manager" ? `${C.goldDark}18` : w.role === "associate_broker" ? `${C.info}18` : "#F3F4F6";
+  const badgeColor  = w.role === "manager" ? C.goldDark        : w.role === "associate_broker" ? C.info        : "#6B7280";
+  const badgeBorder = w.role === "manager" ? `${C.goldDark}44` : w.role === "associate_broker" ? `${C.info}44` : "#E5E7EB";
+  const badgeLabel  = w.role === "manager" ? "MANAGER"         : w.role === "associate_broker" ? "ASSOC. BROKER" : "WORKER";
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+      padding: "12px 0", borderBottom: `1px solid ${C.ivory}`,
+    }}>
+      {/* Avatar + name/email */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
+          background: avatarBg, display: "flex", alignItems: "center",
+          justifyContent: "center", fontSize: 15, color: avatarColor, fontWeight: "bold",
+        }}>
+          {w.name.charAt(0).toUpperCase()}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: "bold", color: C.charcoal, fontSize: 13, fontFamily: "Georgia, serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {w.name}
+          </div>
+          <div style={{ color: "#999", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {w.email}
+          </div>
+        </div>
+      </div>
+
+      {/* Badges + three-dots */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        {/* Role badge */}
+        <span style={{
+          fontSize: 9, letterSpacing: 1, padding: "4px 10px", borderRadius: 10,
+          background: badgeBg, color: badgeColor, border: `1px solid ${badgeBorder}`,
+          whiteSpace: "nowrap",
+        }}>
+          {badgeLabel}
+        </span>
+
+        {/* Commission badge */}
+        {w.commission && (
+          <span style={{
+            fontSize: 9, letterSpacing: 1, padding: "4px 10px", borderRadius: 10,
+            background: `${C.warning}18`, color: C.warning, border: `1px solid ${C.warning}44`,
+            whiteSpace: "nowrap",
+          }}>
+            {w.commission}% COMM.
+          </span>
+        )}
+
+        {/* ··· button — ref from useRowMenu */}
+        <button
+          ref={menu.btnRef}
+          onClick={menu.openMenu}
+          aria-label="Worker options"
+          style={{
+            background: menu.open ? C.bg : "none",
+            border: `1px solid ${menu.open ? C.ivoryDark : "transparent"}`,
+            borderRadius: 7,
+            cursor: "pointer",
+            color: "#555",
+            fontSize: 17,
+            lineHeight: 1,
+            padding: "5px 10px",
+            fontWeight: "bold",
+            letterSpacing: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minWidth: 36,
+            transition: "background 0.12s, border-color 0.12s",
+          }}
+        >
+          ···
+        </button>
+
+        {/* Dropdown — fixed so it always escapes overflow:hidden parents */}
+        {menu.open && (
+          <div
+            ref={menu.dropRef}
+            className="anim-fade"
+            style={{
+              position: "fixed",
+              top: menu.coords.top,
+              right: menu.coords.right,
+              zIndex: 99999,
+              background: "white",
+              border: `1px solid ${C.ivoryDark}`,
+              borderRadius: 10,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.20), 0 2px 8px rgba(0,0,0,0.10)",
+              minWidth: 165,
+              overflow: "hidden",
+            }}
+          >
+            {/* Edit Profile */}
+            <button
+              onClick={e => { e.stopPropagation(); menu.setOpen(false); onEdit(w); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                width: "100%", padding: "13px 16px",
+                background: "none", border: "none",
+                borderBottom: `1px solid ${C.ivory}`,
+                cursor: "pointer", fontSize: 13,
+                color: C.charcoal, textAlign: "left",
+                fontFamily: "Georgia, serif",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = C.bg}
+              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            >
+              <span style={{ fontSize: 15 }}>✏️</span> Edit Profile
+            </button>
+
+            {/* Delete */}
+            <button
+              onClick={e => { e.stopPropagation(); menu.setOpen(false); onDelete(w); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                width: "100%", padding: "13px 16px",
+                background: "none", border: "none",
+                cursor: "pointer", fontSize: 13,
+                color: C.danger, textAlign: "left",
+                fontFamily: "Georgia, serif",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = `${C.danger}0D`}
+              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            >
+              <span style={{ fontSize: 15 }}>🗑</span> Delete
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SettingsView({ workers, onAddWorker, onDeleteWorker, onUpdateWorker }) {
+  const blankWorker = { name: "", email: "", password: "", role: "worker", commission: "" };
+  const [form,      setForm]      = useState(blankWorker);
+  const [showPass,  setShowPass]  = useState(false);
+  const [confirmDel, setConfirmDel] = useState(null);   // worker object to delete
+  const [editingWorker, setEditingWorker] = useState(null); // worker object being edited
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleAdd = () => {
@@ -2433,16 +2848,10 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
     setForm(blankWorker);
   };
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = e => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setOpenMenuId(null);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const handleEditSave = updatedWorker => {
+    if (onUpdateWorker) onUpdateWorker(updatedWorker);
+    setEditingWorker(null);
+  };
 
   return (
     <div style={{ padding: "20px 16px 90px", maxWidth: 700, margin: "0 auto", width: "100%" }}>
@@ -2451,13 +2860,14 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
         Settings & Workers
       </h2>
 
-      {/* Add Worker Card */}
+      {/* ── Add Worker Card ───────────────────────────────── */}
       <div style={{ background: "white", border: `1px solid ${C.ivoryDark}`, borderRadius: 14, padding: "24px 20px", marginBottom: 24 }}>
         <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 3, marginBottom: 16 }}>ADD TEAM MEMBER</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <FormField label="Full Name" value={form.name} onChange={v => setF("name", v)} required span2 />
           <FormField label="Email Address" type="email" value={form.email} onChange={v => setF("email", v)} required />
-          {/* Password field with toggle */}
+
+          {/* Password with show/hide toggle */}
           <div>
             <div style={fieldLabel}>PASSWORD <span style={{ color: C.danger }}>*</span></div>
             <div style={{ position: "relative" }}>
@@ -2473,12 +2883,17 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
               </button>
             </div>
           </div>
-          {/* Role + Commission side by side */}
-          <div style={{ gridColumn:"1/-1", display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+
+          {/* Role + Commission */}
+          <div style={{ gridColumn: "1/-1", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div>
               <div style={fieldLabel}>ROLE</div>
               <select value={form.role} onChange={e => setF("role", e.target.value)}
-                style={{ ...inputStyle, cursor: "pointer", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center" }}>
+                style={{
+                  ...inputStyle, cursor: "pointer", appearance: "none",
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center",
+                }}>
                 <option value="worker">Regular Worker</option>
                 <option value="associate_broker">Associate Broker</option>
                 <option value="manager">Manager</option>
@@ -2486,31 +2901,21 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
             </div>
             <div>
               <div style={fieldLabel}>COMMISSION PERCENTAGE</div>
-              <div style={{ position:"relative" }}>
+              <div style={{ position: "relative" }}>
                 <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
+                  type="number" min="0" max="100" step="0.1"
                   value={form.commission}
                   onChange={e => setF("commission", e.target.value)}
                   placeholder="e.g. 1, 2, 2.5"
                   style={{ ...inputStyle, paddingRight: 36 }}
                 />
-                <span style={{ position:"absolute", right:14, top:"50%", transform:"translateY(-50%)", color:"#aaa", fontSize:14, pointerEvents:"none" }}>%</span>
+                <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "#aaa", fontSize: 14, pointerEvents: "none" }}>%</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Role description */}
-        <div style={{ marginTop: 14, background: C.bg, borderRadius: 10, padding: "12px 14px", fontSize: 12, color: "#777", lineHeight: 1.7 }}>
-          {form.role === "manager"
-            ? "✦ Manager — Full access: Dashboard, financial data, lenders, clients, settings & worker management."
-            : form.role === "associate_broker"
-            ? "✦ Associate Broker — Restricted access: Lenders section only. Cannot view Contacts, Deals, Dashboard, or admin pages."
-            : "✦ Regular Worker — Restricted access: Can view, add & manage Lenders and Clients only. No Dashboard or admin access."}
-        </div>
+        <RoleDescription role={form.role} />
 
         <button onClick={handleAdd} className="btn-transition" style={{
           marginTop: 18, width: "100%", padding: "13px",
@@ -2522,7 +2927,7 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
         </button>
       </div>
 
-      {/* Worker List */}
+      {/* ── Worker List ───────────────────────────────────── */}
       <div style={{ background: "white", border: `1px solid ${C.ivoryDark}`, borderRadius: 14, padding: "20px" }}>
         <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 3, marginBottom: 16 }}>
           TEAM MEMBERS ({workers.length})
@@ -2531,113 +2936,31 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker }) {
           <div style={{ textAlign: "center", color: "#bbb", padding: "30px 0", fontSize: 13 }}>No workers yet.</div>
         ) : (
           workers.map(w => (
-            <div key={w.id} style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-              padding: "12px 0", borderBottom: `1px solid ${C.ivory}`,
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
-                  background: w.role === "manager" ? `${C.goldDark}22` : w.role === "associate_broker" ? `${C.info}22` : "#F3F4F6",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 15, color: w.role === "manager" ? C.goldDark : w.role === "associate_broker" ? C.info : "#6B7280", fontWeight: "bold",
-                }}>
-                  {w.name.charAt(0).toUpperCase()}
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: "bold", color: C.charcoal, fontSize: 13, fontFamily: "Georgia, serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {w.name}
-                  </div>
-                  <div style={{ color: "#999", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {w.email}
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                <span style={{
-                  fontSize: 9, letterSpacing: 1, padding: "4px 10px", borderRadius: 10,
-                  background: w.role === "manager" ? `${C.goldDark}18` : w.role === "associate_broker" ? `${C.info}18` : "#F3F4F6",
-                  color: w.role === "manager" ? C.goldDark : w.role === "associate_broker" ? C.info : "#6B7280",
-                  border: `1px solid ${w.role === "manager" ? C.goldDark + "44" : w.role === "associate_broker" ? C.info + "44" : "#E5E7EB"}`,
-                }}>
-                  {w.role === "manager" ? "MANAGER" : w.role === "associate_broker" ? "ASSOC. BROKER" : "WORKER"}
-                </span>
-                {w.commission && (
-                  <span style={{
-                    fontSize: 9, letterSpacing: 1, padding: "4px 10px", borderRadius: 10,
-                    background: `${C.warning}18`, color: C.warning,
-                    border: `1px solid ${C.warning}44`,
-                  }}>
-                    {w.commission}% COMM.
-                  </span>
-                )}
-                <div style={{ position: "relative" }} ref={openMenuId === w.id ? menuRef : null}>
-                  <button onClick={e => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setOpenMenuId(openMenuId === w.id ? null : w.id);
-                      if (openMenuId !== w.id) {
-                        e.currentTarget.dataset.top  = rect.bottom + window.scrollY + 6;
-                        e.currentTarget.dataset.right = window.innerWidth - rect.right;
-                      }
-                    }} className="btn-transition"
-                    data-worker-menu-btn="true"
-                    style={{ background: "none", border: "none", cursor: "pointer", color: "#888", fontSize: 18, lineHeight: 1, padding: "2px 6px", fontWeight: "bold" }}>
-                    ···
-                  </button>
-                  {openMenuId === w.id && (() => {
-                    const btn = menuRef.current?.querySelector('[data-worker-menu-btn]');
-                    const rect = btn ? btn.getBoundingClientRect() : { bottom: 0, right: 0 };
-                    return (
-                      <div className="anim-fade" style={{
-                        position: "fixed",
-                        top: rect.bottom + window.scrollY + 6,
-                        right: window.innerWidth - rect.right,
-                        background: "white",
-                        border: `1px solid ${C.ivoryDark}`,
-                        borderRadius: 8,
-                        boxShadow: "0 4px 24px rgba(0,0,0,0.16)",
-                        zIndex: 9999,
-                        minWidth: 140,
-                        overflow: "hidden",
-                      }}>
-                        <button onClick={() => { /* Edit handler */ setOpenMenuId(null); }}
-                          style={{
-                            width: "100%", padding: "10px 16px", background: "none", border: "none",
-                            cursor: "pointer", fontSize: 13, color: C.charcoal,
-                            textAlign: "left", transition: "all 0.15s",
-                            borderBottom: `1px solid ${C.ivory}`,
-                          }}
-                          onMouseEnter={e => e.target.style.background = C.bg}
-                          onMouseLeave={e => e.target.style.background = "none"}
-                        >
-                          ✏️ Edit
-                        </button>
-                        <button onClick={() => { setConfirmDel(w); setOpenMenuId(null); }}
-                          style={{
-                            width: "100%", padding: "10px 16px", background: "none", border: "none",
-                            cursor: "pointer", fontSize: 13, color: C.danger,
-                            textAlign: "left", transition: "all 0.15s",
-                          }}
-                          onMouseEnter={e => e.target.style.background = "#FEF0EF"}
-                          onMouseLeave={e => e.target.style.background = "none"}
-                        >
-                          🗑 Delete
-                        </button>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            </div>
+            <WorkerRow
+              key={w.id}
+              w={w}
+              onEdit={worker => setEditingWorker(worker)}
+              onDelete={worker => setConfirmDel(worker)}
+            />
           ))
         )}
       </div>
 
+      {/* ── Edit Modal ────────────────────────────────────── */}
+      {editingWorker && (
+        <EditWorkerModal
+          worker={editingWorker}
+          onSave={handleEditSave}
+          onCancel={() => setEditingWorker(null)}
+        />
+      )}
+
+      {/* ── Delete Confirmation ───────────────────────────── */}
       {confirmDel && (
         <ConfirmModal
           title="Remove Worker"
-          message={`Remove "${confirmDel.name}" from the team? They will no longer be able to log in.`}
-          confirmLabel="Remove"
+          message={`Are you sure you want to remove "${confirmDel.name}" from the team? They will no longer be able to log in.`}
+          confirmLabel="Yes, Remove"
           danger
           onConfirm={() => { onDeleteWorker(confirmDel.id); setConfirmDel(null); }}
           onCancel={() => setConfirmDel(null)}
@@ -3586,6 +3909,7 @@ export default function App() {
   // Worker handlers
   const handleAddWorker    = w  => setWorkers(ws => [...ws, w]);
   const handleDeleteWorker = id => setWorkers(ws => ws.filter(w => w.id !== id));
+  const handleUpdateWorker = w  => setWorkers(ws => ws.map(x => x.id === w.id ? { ...w } : x));
 
   // Org handlers
   const handleOrgSave = form => {
@@ -3666,7 +3990,7 @@ export default function App() {
           onEdit={handleDealEdit} onDelete={handleDealDelete} onStageChange={(id,stage)=>setDeals(ds=>ds.map(d=>d.id===id?{...d,dealStage:stage}:d))} />;
       case "settings":
         if (user.role !== "manager") { setView("clients"); return null; }
-        return <SettingsView workers={workers} onAddWorker={handleAddWorker} onDeleteWorker={handleDeleteWorker} />;
+        return <SettingsView workers={workers} onAddWorker={handleAddWorker} onDeleteWorker={handleDeleteWorker} onUpdateWorker={handleUpdateWorker} />;
       case "workers":
         if (user.role !== "manager") { setView("clients"); return null; }
         return <WorkersView deals={deals} workers={workers}
@@ -3751,4 +4075,4 @@ export default function App() {
       </div>
     </>
   );
-}
+          }
