@@ -263,6 +263,122 @@ function ConfirmModal({ title, message, confirmLabel = "Confirm", danger, onConf
 }
 
 // ─────────────────────────────────────────────────────────────
+// THREE-DOT DROPDOWN MENU — universal, portal-based
+// Always opens directly below the trigger button on all devices.
+// ─────────────────────────────────────────────────────────────
+function ThreeDotMenu({ items }) {
+  const [open, setOpen]     = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const btnRef  = useRef(null);
+  const dropRef = useRef(null);
+
+  // Close on outside click/tap
+  useEffect(() => {
+    if (!open) return;
+    const close = e => {
+      if (
+        dropRef.current && !dropRef.current.contains(e.target) &&
+        btnRef.current  && !btnRef.current.contains(e.target)
+      ) setOpen(false);
+    };
+    document.addEventListener("mousedown", close, true);
+    document.addEventListener("touchstart", close, true);
+    return () => {
+      document.removeEventListener("mousedown", close, true);
+      document.removeEventListener("touchstart", close, true);
+    };
+  }, [open]);
+
+  const toggle = e => {
+    e.stopPropagation();
+    if (!btnRef.current) return;
+    const rect      = btnRef.current.getBoundingClientRect();
+    const dropW     = 170; // estimated dropdown width
+    const gap       = 4;
+
+    // Prefer left-aligned with button; flip left if would overflow right edge
+    let left = rect.left;
+    if (left + dropW > window.innerWidth - 8) left = rect.right - dropW;
+    left = Math.max(8, left);
+
+    setCoords({ top: rect.bottom + gap, left });
+    setOpen(v => !v);
+  };
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={toggle}
+        aria-label="Options"
+        className="btn-transition"
+        style={{
+          background: open ? C.bg : "none",
+          border: `1px solid ${open ? C.ivoryDark : "transparent"}`,
+          borderRadius: 7,
+          cursor: "pointer",
+          color: "#666",
+          fontSize: 18,
+          lineHeight: 1,
+          padding: "4px 9px",
+          fontWeight: "bold",
+          letterSpacing: 2,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minWidth: 34,
+          minHeight: 34,
+          transition: "background 0.15s, border-color 0.15s",
+          flexShrink: 0,
+        }}
+      >
+        ···
+      </button>
+
+      {open && (
+        <div
+          ref={dropRef}
+          className="anim-fade"
+          style={{
+            position: "fixed",
+            top: coords.top,
+            left: coords.left,
+            zIndex: 99999,
+            background: "white",
+            border: `1px solid ${C.ivoryDark}`,
+            borderRadius: 10,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)",
+            minWidth: 170,
+            overflow: "hidden",
+          }}
+        >
+          {items.map((item, idx) => (
+            <button
+              key={idx}
+              onClick={e => { e.stopPropagation(); setOpen(false); item.onClick(); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                width: "100%", padding: "12px 16px",
+                background: "none", border: "none",
+                borderBottom: idx < items.length - 1 ? `1px solid ${C.ivory}` : "none",
+                cursor: "pointer", fontSize: 13,
+                color: item.danger ? C.danger : C.charcoal,
+                textAlign: "left", fontFamily: "Georgia, serif",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = item.danger ? `${C.danger}0D` : C.bg}
+              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            >
+              <span style={{ fontSize: 15 }}>{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // SPLASH SCREEN
 // ─────────────────────────────────────────────────────────────
 function SplashScreen({ onEnter }) {
@@ -863,238 +979,8 @@ function DealPipeline({ currentStage }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────
 // FILE MANAGER — desktop-style, folders + files
 // ─────────────────────────────────────────────────────────────
-
-// Self-contained dropdown hook — viewport-relative fixed positioning, no scrollY
-function useRowMenu() {
-  const [open, setOpen]     = useState(false);
-  const [coords, setCoords] = useState({ top: 0, right: 0 });
-  const btnRef              = useRef(null);
-  const dropRef             = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = e => {
-      if (
-        dropRef.current && !dropRef.current.contains(e.target) &&
-        btnRef.current  && !btnRef.current.contains(e.target)
-      ) setOpen(false);
-    };
-    document.addEventListener("mousedown",  close);
-    document.addEventListener("touchstart", close);
-    return () => {
-      document.removeEventListener("mousedown",  close);
-      document.removeEventListener("touchstart", close);
-    };
-  }, [open]);
-
-  const openMenu = e => {
-    e.stopPropagation();
-    const rect  = btnRef.current.getBoundingClientRect();
-    // position:fixed is viewport-relative — no scrollY/X needed
-    const top   = rect.bottom + 4;
-    const right = Math.max(8, window.innerWidth - rect.right);
-    setCoords({ top, right });
-    setOpen(v => !v);
-  };
-
-  return { open, setOpen, coords, btnRef, dropRef, openMenu };
-}
-
-// Folder row — self-contained so menu ref/position are isolated
-function FmFolderRow({ folder, iconBtn, ivoryDark, onOpen, onRename, onDelete, renamingId, renameVal, setRenameVal, renameRef, setRenamingId, renameFolder }) {
-  const menu = useRowMenu();
-  const S_row = {
-    display: "flex", alignItems: "center", gap: 10,
-    padding: "9px 12px", borderRadius: 9,
-    background: "white",
-    border: `1px solid ${C.ivoryDark}`,
-    marginBottom: 6, cursor: "pointer",
-    transition: "all 0.15s",
-  };
-  return (
-    <div style={S_row}>
-      <span style={{ fontSize: 18, flexShrink: 0 }}>📁</span>
-      {renamingId === folder.id ? (
-        <input
-          ref={renameRef}
-          value={renameVal}
-          onChange={e => setRenameVal(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === "Enter") renameFolder(folder.id, renameVal.trim() || folder.name);
-            if (e.key === "Escape") setRenamingId(null);
-          }}
-          onBlur={() => renameFolder(folder.id, renameVal.trim() || folder.name)}
-          style={{ flex: 1, padding: "5px 10px", fontSize: 13, border: `1.5px solid ${C.ivoryDark}`, borderRadius: 8, background: C.bg, fontFamily: "Georgia, serif", outline: "none" }}
-          onClick={e => e.stopPropagation()}
-        />
-      ) : (
-        <span onClick={() => onOpen(folder.id)}
-          style={{ flex: 1, fontSize: 13, color: C.charcoal, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {folder.name}
-        </span>
-      )}
-      <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", marginRight: 4 }}>
-        {folder.files.length} item{folder.files.length !== 1 ? "s" : ""}
-      </span>
-      {renamingId !== folder.id && (
-        <>
-          <button title="Open" style={iconBtn(C.goldDark)} onClick={() => onOpen(folder.id)}>›</button>
-          {/* ··· button */}
-          <button
-            ref={menu.btnRef}
-            title="Options"
-            onClick={menu.openMenu}
-            style={{
-              ...iconBtn("#666"),
-              border: `1px solid ${C.ivoryDark}`,
-              borderRadius: 7,
-              padding: "3px 9px",
-              fontSize: 15,
-              letterSpacing: 1,
-              background: menu.open ? C.bg : "none",
-            }}
-          >⋯</button>
-          {/* Dropdown */}
-          {menu.open && (
-            <div
-              ref={menu.dropRef}
-              className="anim-fade"
-              style={{
-                position: "fixed",
-                top: menu.coords.top,
-                right: menu.coords.right,
-                zIndex: 99999,
-                background: "white",
-                borderRadius: 10,
-                boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)",
-                border: `1px solid ${C.ivoryDark}`,
-                minWidth: 150,
-                overflow: "hidden",
-              }}
-            >
-              <button
-                onClick={e => { e.stopPropagation(); menu.setOpen(false); onRename(folder); }}
-                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif", borderBottom: `1px solid ${C.ivory}` }}
-                onMouseEnter={e => e.currentTarget.style.background = C.bg}
-                onMouseLeave={e => e.currentTarget.style.background = "none"}
-              ><span>✏️</span> Rename</button>
-              <button
-                onClick={e => { e.stopPropagation(); menu.setOpen(false); onDelete(folder); }}
-                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.danger, textAlign: "left", fontFamily: "Georgia, serif" }}
-                onMouseEnter={e => e.currentTarget.style.background = `${C.danger}0D`}
-                onMouseLeave={e => e.currentTarget.style.background = "none"}
-              ><span>🗑</span> Delete</button>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// File row — self-contained so menu ref/position are isolated
-function FmFileRow({ file, activeFolderId, iconBtn, fmtSize, fileIcon, isImage, isPdf, onPreview, onRename, onDelete, renamingId, renameVal, setRenameVal, renameRef, setRenamingId, renameFile }) {
-  const menu = useRowMenu();
-  const S_row = {
-    display: "flex", alignItems: "center", gap: 10,
-    padding: "8px 12px", borderRadius: 9,
-    background: "white", border: `1px solid ${C.ivoryDark}`,
-    marginBottom: 6, transition: "all 0.15s",
-  };
-  return (
-    <div style={S_row}>
-      <span style={{ fontSize: 18, flexShrink: 0 }}>{fileIcon(file)}</span>
-      {renamingId === file.id ? (
-        <input
-          ref={renameRef}
-          value={renameVal}
-          onChange={e => setRenameVal(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === "Enter") renameFile(file.id, activeFolderId, renameVal.trim() || file.name);
-            if (e.key === "Escape") setRenamingId(null);
-          }}
-          onBlur={() => renameFile(file.id, activeFolderId, renameVal.trim() || file.name)}
-          style={{ flex: 1, padding: "5px 10px", fontSize: 13, border: `1.5px solid ${C.ivoryDark}`, borderRadius: 8, background: C.bg, fontFamily: "Georgia, serif", outline: "none" }}
-          onClick={e => e.stopPropagation()}
-        />
-      ) : (
-        <span style={{ flex: 1, fontSize: 13, color: C.charcoal, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={file.name}>
-          {file.name}
-        </span>
-      )}
-      <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", marginRight: 4 }}>{fmtSize(file.size)}</span>
-      {renamingId !== file.id && (
-        <>
-          {/* ··· button */}
-          <button
-            ref={menu.btnRef}
-            title="Options"
-            onClick={menu.openMenu}
-            style={{
-              ...iconBtn("#666"),
-              border: `1px solid ${C.ivoryDark}`,
-              borderRadius: 7,
-              padding: "3px 9px",
-              fontSize: 15,
-              letterSpacing: 1,
-              background: menu.open ? C.bg : "none",
-            }}
-          >⋯</button>
-          {/* Dropdown */}
-          {menu.open && (
-            <div
-              ref={menu.dropRef}
-              className="anim-fade"
-              style={{
-                position: "fixed",
-                top: menu.coords.top,
-                right: menu.coords.right,
-                zIndex: 99999,
-                background: "white",
-                borderRadius: 10,
-                boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)",
-                border: `1px solid ${C.ivoryDark}`,
-                minWidth: 155,
-                overflow: "hidden",
-              }}
-            >
-              {(isImage(file) || isPdf(file)) && (
-                <button
-                  onClick={() => { menu.setOpen(false); onPreview(file); }}
-                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif", borderBottom: `1px solid ${C.ivory}` }}
-                  onMouseEnter={e => e.currentTarget.style.background = C.bg}
-                  onMouseLeave={e => e.currentTarget.style.background = "none"}
-                ><span>👁</span> View</button>
-              )}
-              <button
-                onClick={() => { menu.setOpen(false); const a = document.createElement("a"); a.href = file.data; a.download = file.name; a.click(); }}
-                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif", borderBottom: `1px solid ${C.ivory}` }}
-                onMouseEnter={e => e.currentTarget.style.background = C.bg}
-                onMouseLeave={e => e.currentTarget.style.background = "none"}
-              ><span>⬇</span> Download</button>
-              <button
-                onClick={() => { menu.setOpen(false); onRename(file); }}
-                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif", borderBottom: `1px solid ${C.ivory}` }}
-                onMouseEnter={e => e.currentTarget.style.background = C.bg}
-                onMouseLeave={e => e.currentTarget.style.background = "none"}
-              ><span>✏️</span> Rename</button>
-              <button
-                onClick={() => { menu.setOpen(false); onDelete(file); }}
-                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.danger, textAlign: "left", fontFamily: "Georgia, serif" }}
-                onMouseEnter={e => e.currentTarget.style.background = `${C.danger}0D`}
-                onMouseLeave={e => e.currentTarget.style.background = "none"}
-              ><span>🗑</span> Delete</button>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
 function ContactFileManager({ value, onChange }) {
   // value: { folders: [{id, name, files:[{id,name,type,size,data,uploadedAt}]}], rootFiles:[...] }
   const init = value || { folders: [], rootFiles: [] };
@@ -1107,8 +993,19 @@ function ContactFileManager({ value, onChange }) {
   const [previewFile, setPreviewFile]      = useState(null);
   const [confirmDel, setConfirmDel]        = useState(null); // {type:'folder'|'file', id, folderId?}
   const [draggingOver, setDraggingOver]    = useState(false);
+  const [menuOpenId, setMenuOpenId]        = useState(null); // id of row with open dropdown
+  const [menuPos,    setMenuPos]           = useState({ top: 0, left: 0 }); // for fixed positioning
   const uploadRef                          = useRef();
   const renameRef                          = useRef();
+  const menuRef                            = useRef();
+
+  // Close dropdown menu on outside click
+  useEffect(() => {
+    if (!menuOpenId) return;
+    const handler = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpenId(null); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpenId]);
 
   // Sync up to parent whenever fs changes
   useEffect(() => { onChange(fs); }, [fs]);
@@ -1337,43 +1234,131 @@ function ContactFileManager({ value, onChange }) {
 
           {/* Folders (only visible at root) */}
           {!activeFolderId && fs.folders.map(folder => (
-            <FmFolderRow
-              key={folder.id}
-              folder={folder}
-              iconBtn={S.iconBtn}
-              onOpen={id => setActiveFolderId(id)}
-              onRename={f => { setRenamingId(f.id); setRenameVal(f.name); }}
-              onDelete={f => setConfirmDel({ type: "folder", id: f.id })}
-              renamingId={renamingId}
-              renameVal={renameVal}
-              setRenameVal={setRenameVal}
-              renameRef={renameRef}
-              setRenamingId={setRenamingId}
-              renameFolder={renameFolder}
-            />
+            <div key={folder.id} style={S.folderRow(false)}>
+              <span style={{ fontSize: 18, flexShrink: 0 }}>📁</span>
+              {renamingId === folder.id ? (
+                <input
+                  ref={renameRef}
+                  value={renameVal}
+                  onChange={e => setRenameVal(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") renameFolder(folder.id, renameVal.trim() || folder.name); if (e.key === "Escape") setRenamingId(null); }}
+                  onBlur={() => renameFolder(folder.id, renameVal.trim() || folder.name)}
+                  style={{ ...inputStyle, flex: 1, padding: "5px 10px", fontSize: 13 }}
+                  onClick={e => e.stopPropagation()}
+                />
+              ) : (
+                <span onClick={() => setActiveFolderId(folder.id)}
+                  style={{ flex: 1, fontSize: 13, color: C.charcoal, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {folder.name}
+                </span>
+              )}
+              <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", marginRight: 4 }}>
+                {folder.files.length} item{folder.files.length !== 1 ? "s" : ""}
+              </span>
+              {renamingId !== folder.id && (
+                <>
+                  <button title="Open" style={S.iconBtn(C.goldDark)} onClick={() => setActiveFolderId(folder.id)}>›</button>
+                  <div ref={menuOpenId === folder.id ? menuRef : null} style={{ position: "relative", flexShrink: 0 }}>
+                    <button title="Options" onClick={e => {
+                        e.stopPropagation();
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setMenuPos({ top: rect.bottom + window.scrollY + 4, left: rect.right + window.scrollX - 140 });
+                        setMenuOpenId(menuOpenId === folder.id ? null : folder.id);
+                      }}
+                      style={{ ...S.iconBtn("#666"), border: `1px solid ${C.ivoryDark}`, borderRadius: 7, padding: "3px 8px", fontSize: 15, letterSpacing: 1 }}>
+                      ⋯
+                    </button>
+                    {menuOpenId === folder.id && (
+                      <div className="anim-fade" style={{
+                        position: "fixed", top: menuPos.top, left: Math.max(8, menuPos.left), zIndex: 9999,
+                        background: "white", borderRadius: 10, boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
+                        border: `1px solid ${C.ivoryDark}`, minWidth: 140, overflow: "hidden",
+                      }}>
+                        <button onClick={e => { e.stopPropagation(); setMenuOpenId(null); setRenamingId(folder.id); setRenameVal(folder.name); }}
+                          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                          ✏️ Rename
+                        </button>
+                        <div style={{ height: 1, background: C.ivory }} />
+                        <button onClick={e => { e.stopPropagation(); setMenuOpenId(null); setConfirmDel({ type: "folder", id: folder.id }); }}
+                          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.danger, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                          🗑 Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           ))}
 
           {/* Files in current location */}
           {currentFiles.map(file => (
-            <FmFileRow
-              key={file.id}
-              file={file}
-              activeFolderId={activeFolderId}
-              iconBtn={S.iconBtn}
-              fmtSize={fmtSize}
-              fileIcon={fileIcon}
-              isImage={isImage}
-              isPdf={isPdf}
-              onPreview={f => setPreviewFile(f)}
-              onRename={f => { setRenamingId(f.id); setRenameVal(f.name); }}
-              onDelete={f => setConfirmDel({ type: "file", id: f.id, folderId: activeFolderId })}
-              renamingId={renamingId}
-              renameVal={renameVal}
-              setRenameVal={setRenameVal}
-              renameRef={renameRef}
-              setRenamingId={setRenamingId}
-              renameFile={renameFile}
-            />
+            <div key={file.id} style={S.fileRow}>
+              <span style={{ fontSize: 18, flexShrink: 0 }}>{fileIcon(file)}</span>
+              {renamingId === file.id ? (
+                <input
+                  ref={renameRef}
+                  value={renameVal}
+                  onChange={e => setRenameVal(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") renameFile(file.id, activeFolderId, renameVal.trim() || file.name);
+                    if (e.key === "Escape") setRenamingId(null);
+                  }}
+                  onBlur={() => renameFile(file.id, activeFolderId, renameVal.trim() || file.name)}
+                  style={{ ...inputStyle, flex: 1, padding: "5px 10px", fontSize: 13 }}
+                  onClick={e => e.stopPropagation()}
+                />
+              ) : (
+                <span style={{ flex: 1, fontSize: 13, color: C.charcoal, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  title={file.name}>
+                  {file.name}
+                </span>
+              )}
+              <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", marginRight: 4 }}>{fmtSize(file.size)}</span>
+              {renamingId !== file.id && (
+                <div ref={menuOpenId === file.id ? menuRef : null} style={{ position: "relative", flexShrink: 0 }}>
+                  <button title="Options" onClick={e => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setMenuPos({ top: rect.bottom + window.scrollY + 4, left: rect.right + window.scrollX - 150 });
+                      setMenuOpenId(menuOpenId === file.id ? null : file.id);
+                    }}
+                    style={{ ...S.iconBtn("#666"), border: `1px solid ${C.ivoryDark}`, borderRadius: 7, padding: "3px 8px", fontSize: 15, letterSpacing: 1 }}>
+                    ⋯
+                  </button>
+                  {menuOpenId === file.id && (
+                    <div className="anim-fade" style={{
+                      position: "fixed", top: menuPos.top, left: Math.max(8, menuPos.left), zIndex: 9999,
+                      background: "white", borderRadius: 10, boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
+                      border: `1px solid ${C.ivoryDark}`, minWidth: 150, overflow: "hidden",
+                    }}>
+                      {(isImage(file) || isPdf(file)) && (
+                        <>
+                          <button onClick={() => { setMenuOpenId(null); setPreviewFile(file); }}
+                            style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                            👁 View
+                          </button>
+                          <div style={{ height: 1, background: C.ivory }} />
+                        </>
+                      )}
+                      <button onClick={() => { setMenuOpenId(null); const a = document.createElement("a"); a.href = file.data; a.download = file.name; a.click(); }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                        ⬇ Download
+                      </button>
+                      <div style={{ height: 1, background: C.ivory }} />
+                      <button onClick={() => { setMenuOpenId(null); setRenamingId(file.id); setRenameVal(file.name); }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                        ✏️ Rename
+                      </button>
+                      <div style={{ height: 1, background: C.ivory }} />
+                      <button onClick={() => { setMenuOpenId(null); setConfirmDel({ type: "file", id: file.id, folderId: activeFolderId }); }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.danger, textAlign: "left", fontFamily: "Georgia, serif" }}>
+                        🗑 Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           ))}
 
           {/* Empty state + drop zone */}
@@ -1536,16 +1521,17 @@ function ClientCard({ client, onEdit, onDelete }) {
   return (
     <>
       <div className="card-hover" style={{
-        background: "white", borderRadius: 14, marginBottom: 10, overflow: "hidden",
+        background: "white", borderRadius: 14, marginBottom: 10, overflow: "visible",
         border: `1px solid ${C.ivoryDark}`, borderLeft: `4px solid ${C.goldDark}`,
         boxShadow: expanded ? "0 4px 24px rgba(0,0,0,0.08)" : "0 1px 4px rgba(0,0,0,0.05)",
         transition: "box-shadow 0.2s",
       }}>
-        <div onClick={() => setExpanded(v => !v)} style={{
+        <div style={{
           padding: "14px 16px", display: "flex", alignItems: "center",
-          justifyContent: "space-between", cursor: "pointer", gap: 10,
+          justifyContent: "space-between", gap: 10,
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+          {/* Clickable area — avatar + name */}
+          <div onClick={() => setExpanded(v => !v)} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, cursor: "pointer" }}>
             <div style={{
               width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
               background: `${C.goldDark}22`, display: "flex", alignItems: "center",
@@ -1556,7 +1542,14 @@ function ClientCard({ client, onEdit, onDelete }) {
               <div style={{ color: "#999", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(client.emails||[])[0] || (client.phones||[])[0]?.number || client.email || client.phone || "No contact info"}</div>
             </div>
           </div>
-          <span style={{ color: C.gold, fontSize: 14, transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+          {/* Right side: chevron + three-dot menu */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <span onClick={() => setExpanded(v => !v)} style={{ color: C.gold, fontSize: 14, transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.2s", cursor: "pointer", padding: "4px 6px" }}>▾</span>
+            <ThreeDotMenu items={[
+              { icon: "✏️", label: "Edit Contact",   onClick: () => onEdit(client) },
+              { icon: "🗑",  label: "Delete Contact", onClick: () => setConfirmDelete(true), danger: true },
+            ]} />
+          </div>
         </div>
 
         {expanded && (
@@ -1585,10 +1578,6 @@ function ClientCard({ client, onEdit, onDelete }) {
               )}
               {client.address && <div style={{ gridColumn: "1/-1" }}><div style={{ ...fieldLabel, marginBottom: 3 }}>ADDRESS</div><a href={`https://maps.google.com/?q=${encodeURIComponent(client.address)}`} target="_blank" rel="noopener noreferrer" style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>📍 {client.address}</a></div>}
               {client.notes && <div style={{ gridColumn: "1/-1" }}><div style={{ ...fieldLabel, marginBottom: 3 }}>NOTES</div><div style={{ background: C.bg, borderRadius: 8, padding: "10px 12px", fontSize: 13, color: C.charcoal, lineHeight: 1.6 }}>{client.notes}</div></div>}
-            </div>
-            <div style={{ display: "flex", gap: 8, paddingTop: 12, borderTop: `1px solid ${C.ivory}` }}>
-              <button onClick={e => { e.stopPropagation(); onEdit(client); }} className="btn-transition" style={{ flex:1, padding:"11px", background:C.charcoal, color:C.gold, border:"none", borderRadius:10, cursor:"pointer", fontSize:12, letterSpacing:1 }}>EDIT</button>
-              <button onClick={e => { e.stopPropagation(); setConfirmDelete(true); }} className="btn-transition" style={{ padding:"11px 18px", background:C.dangerLight, color:C.danger, border:`1px solid ${C.danger}22`, borderRadius:10, cursor:"pointer", fontSize:12 }}>Delete</button>
             </div>
           </div>
         )}
@@ -2687,10 +2676,8 @@ function EditWorkerModal({ worker, onSave, onCancel }) {
   );
 }
 
-// Individual worker row — uses useRowMenu for consistent, mobile-safe dropdown
+// Individual worker row — uses shared ThreeDotMenu
 function WorkerRow({ w, onEdit, onDelete }) {
-  const menu = useRowMenu();
-
   const avatarBg    = w.role === "manager" ? `${C.goldDark}22` : w.role === "associate_broker" ? `${C.info}22` : "#F3F4F6";
   const avatarColor = w.role === "manager" ? C.goldDark       : w.role === "associate_broker" ? C.info       : "#6B7280";
   const badgeBg     = w.role === "manager" ? `${C.goldDark}18` : w.role === "associate_broker" ? `${C.info}18` : "#F3F4F6";
@@ -2724,8 +2711,8 @@ function WorkerRow({ w, onEdit, onDelete }) {
 
       {/* Badges + three-dots */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-        {/* Role badge */}
-        <span style={{
+        {/* Role badge — hide on very small screens */}
+        <span className="hide-mobile" style={{
           fontSize: 9, letterSpacing: 1, padding: "4px 10px", borderRadius: 10,
           background: badgeBg, color: badgeColor, border: `1px solid ${badgeBorder}`,
           whiteSpace: "nowrap",
@@ -2733,9 +2720,9 @@ function WorkerRow({ w, onEdit, onDelete }) {
           {badgeLabel}
         </span>
 
-        {/* Commission badge */}
+        {/* Commission badge — hide on very small screens */}
         {w.commission && (
-          <span style={{
+          <span className="hide-mobile" style={{
             fontSize: 9, letterSpacing: 1, padding: "4px 10px", borderRadius: 10,
             background: `${C.warning}18`, color: C.warning, border: `1px solid ${C.warning}44`,
             whiteSpace: "nowrap",
@@ -2744,86 +2731,10 @@ function WorkerRow({ w, onEdit, onDelete }) {
           </span>
         )}
 
-        {/* ··· button — ref from useRowMenu */}
-        <button
-          ref={menu.btnRef}
-          onClick={menu.openMenu}
-          aria-label="Worker options"
-          style={{
-            background: menu.open ? C.bg : "none",
-            border: `1px solid ${menu.open ? C.ivoryDark : "transparent"}`,
-            borderRadius: 7,
-            cursor: "pointer",
-            color: "#555",
-            fontSize: 17,
-            lineHeight: 1,
-            padding: "5px 10px",
-            fontWeight: "bold",
-            letterSpacing: 2,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minWidth: 36,
-            transition: "background 0.12s, border-color 0.12s",
-          }}
-        >
-          ···
-        </button>
-
-        {/* Dropdown — fixed so it always escapes overflow:hidden parents */}
-        {menu.open && (
-          <div
-            ref={menu.dropRef}
-            className="anim-fade"
-            style={{
-              position: "fixed",
-              top: menu.coords.top,
-              right: menu.coords.right,
-              zIndex: 99999,
-              background: "white",
-              border: `1px solid ${C.ivoryDark}`,
-              borderRadius: 10,
-              boxShadow: "0 8px 32px rgba(0,0,0,0.20), 0 2px 8px rgba(0,0,0,0.10)",
-              minWidth: 165,
-              overflow: "hidden",
-            }}
-          >
-            {/* Edit Profile */}
-            <button
-              onClick={e => { e.stopPropagation(); menu.setOpen(false); onEdit(w); }}
-              style={{
-                display: "flex", alignItems: "center", gap: 10,
-                width: "100%", padding: "13px 16px",
-                background: "none", border: "none",
-                borderBottom: `1px solid ${C.ivory}`,
-                cursor: "pointer", fontSize: 13,
-                color: C.charcoal, textAlign: "left",
-                fontFamily: "Georgia, serif",
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = C.bg}
-              onMouseLeave={e => e.currentTarget.style.background = "none"}
-            >
-              <span style={{ fontSize: 15 }}>✏️</span> Edit Profile
-            </button>
-
-            {/* Delete */}
-            <button
-              onClick={e => { e.stopPropagation(); menu.setOpen(false); onDelete(w); }}
-              style={{
-                display: "flex", alignItems: "center", gap: 10,
-                width: "100%", padding: "13px 16px",
-                background: "none", border: "none",
-                cursor: "pointer", fontSize: 13,
-                color: C.danger, textAlign: "left",
-                fontFamily: "Georgia, serif",
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = `${C.danger}0D`}
-              onMouseLeave={e => e.currentTarget.style.background = "none"}
-            >
-              <span style={{ fontSize: 15 }}>🗑</span> Delete
-            </button>
-          </div>
-        )}
+        <ThreeDotMenu items={[
+          { icon: "✏️", label: "Edit Profile", onClick: () => onEdit(w) },
+          { icon: "🗑", label: "Delete",       onClick: () => onDelete(w), danger: true },
+        ]} />
       </div>
     </div>
   );
@@ -3721,7 +3632,7 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
 
           return (
             <div key={d.id} className="card-hover" style={{
-              background: isInactive ? "#FFF5F5" : "white", borderRadius:14, marginBottom:12, overflow:"hidden",
+              background: isInactive ? "#FFF5F5" : "white", borderRadius:14, marginBottom:12, overflow:"visible",
               border:`1px solid ${isInactive ? C.danger+"44" : isPri ? C.danger+"55" : C.ivoryDark}`,
               borderLeft:`4px solid ${isInactive ? C.danger : isPri ? C.danger : s.color}`,
               boxShadow: isPri || isInactive ? `0 2px 12px ${C.danger}18` : "0 1px 4px rgba(0,0,0,0.05)",
@@ -3756,8 +3667,14 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
                       {d.visibleTo && d.visibleTo!=="all" && <span style={{ fontSize:9, padding:"3px 8px", borderRadius:10, background:`${C.info}18`, color:C.info, border:`1px solid ${C.info}33` }}>👁 {d.visibleTo==="managers"?"Managers Only":"Workers Only"}</span>}
                     </div>
                   </div>
-                  <div style={{ textAlign:"right", flexShrink:0 }}>
-                    <div style={{ fontSize:18, fontWeight:"bold", fontFamily:"Georgia, serif", color: isPri ? C.danger : C.goldDark }}>{fmt$(d.value)}</div>
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:8, flexShrink:0 }}>
+                    <div style={{ textAlign:"right" }}>
+                      <div style={{ fontSize:18, fontWeight:"bold", fontFamily:"Georgia, serif", color: isPri ? C.danger : C.goldDark }}>{fmt$(d.value)}</div>
+                    </div>
+                    <ThreeDotMenu items={[
+                      { icon: "✏️", label: "Edit Deal",   onClick: () => onEdit(d) },
+                      { icon: "🗑",  label: "Delete Deal", onClick: () => setConfirmDel(d), danger: true },
+                    ]} />
                   </div>
                 </div>
 
@@ -3780,12 +3697,6 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
                     ))}
                   </div>
                 )}
-
-                {/* Actions */}
-                <div style={{ display:"flex", gap:8, marginTop:12, paddingTop:12, borderTop:`1px solid ${C.ivory}` }}>
-                  <button onClick={()=>onEdit(d)} className="btn-transition" style={{ flex:1, padding:"10px", background:C.charcoal, color:C.gold, border:"none", borderRadius:10, cursor:"pointer", fontSize:11, letterSpacing:1 }}>EDIT</button>
-                  <button onClick={()=>setConfirmDel(d)} style={{ padding:"10px 16px", background:C.dangerLight, color:C.danger, border:`1px solid ${C.danger}22`, borderRadius:10, cursor:"pointer", fontSize:11 }}>Delete</button>
-                </div>
               </div>
             </div>
           );
@@ -4075,4 +3986,4 @@ export default function App() {
       </div>
     </>
   );
-          }
+                       }
