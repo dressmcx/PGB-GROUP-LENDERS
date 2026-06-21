@@ -1,5 +1,84 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./supabaseClient";
+
+// ─────────────────────────────────────────────────────────────
+// SUPABASE <-> APP FIELD MAPPING HELPERS
+// DB columns are snake_case; the app's objects are camelCase.
+// These convert both directions so the rest of the app code
+// (forms, cards, etc.) never has to change.
+// ─────────────────────────────────────────────────────────────
+const toDbClient = c => ({
+  id: c.id, full_name: c.fullName, phones: c.phones || [],
+  emails: c.emails || [], address: c.address || "", notes: c.notes || "",
+  created_at: c.createdAt || new Date().toISOString().slice(0, 10),
+});
+const fromDbClient = r => ({
+  id: r.id, fullName: r.full_name, phones: r.phones || [],
+  emails: r.emails || [], address: r.address || "", notes: r.notes || "",
+  createdAt: r.created_at,
+});
+
+const toDbOrg = o => ({
+  id: o.id, name: o.name, sponsor: o.sponsor || "", sponsor2: o.sponsor2 || "",
+  office_contact: o.officeContact || "", mgmt_contact: o.mgmtContact || "",
+  assistance: o.assistance || "", loan_officer: o.loanOfficer || "",
+  address: o.address || "", entity_type: o.entityType || "LLC",
+  phones: o.phones || [], emails: o.emails || [],
+});
+const fromDbOrg = r => ({
+  id: r.id, name: r.name, sponsor: r.sponsor, sponsor2: r.sponsor2,
+  officeContact: r.office_contact, mgmtContact: r.mgmt_contact,
+  assistance: r.assistance, loanOfficer: r.loan_officer,
+  address: r.address, entityType: r.entity_type,
+  phones: r.phones || [], emails: r.emails || [],
+});
+
+const toDbDeal = d => ({
+  id: d.id, contact_id: d.contactId || null, org_id: d.orgId || null,
+  address: d.address || "", value: d.value || 0, closing_date: d.closingDate || "",
+  created_by: d.createdBy || "", deal_type: d.dealType || "Regular",
+  deal_stage: d.dealStage || "intake", payment_amount: d.paymentAmount || 0,
+  visible_to: d.visibleTo || "all", notes: d.notes || "",
+  created_at: d.createdAt || new Date().toISOString().slice(0, 10),
+  deal_notes: d.dealNotes || [], deal_files: d.dealFiles || {},
+  paid_workers: d.paidWorkers || {},
+});
+const fromDbDeal = r => ({
+  id: r.id, contactId: r.contact_id, orgId: r.org_id,
+  address: r.address, value: r.value, closingDate: r.closing_date,
+  createdBy: r.created_by, dealType: r.deal_type, dealStage: r.deal_stage,
+  paymentAmount: r.payment_amount, visibleTo: r.visible_to, notes: r.notes,
+  createdAt: r.created_at, dealNotes: r.deal_notes || [],
+  dealFiles: r.deal_files || { folders: [], rootFiles: [] },
+  paidWorkers: r.paid_workers || {},
+});
+
+const toDbLender = l => ({
+  id: l.id, category: l.category || "", location: l.location || "",
+  bank_name: l.bankName || "", contact_name: l.contactName || "",
+  email: l.email || "", phone: l.phone || "",
+  assistant_phone: l.assistantPhone || "", assistant_name: l.assistantName || "",
+  lender_type: l.lenderType || "", notes: l.notes || "",
+  rate: l.rate || 0, min_loan: l.minLoan || 0, max_loan: l.maxLoan || 0,
+  address: l.address || "", created_by: l.createdBy || "",
+  terms_file_name: l.termsFileName || "", terms_file_data: l.termsFileData || null,
+});
+const fromDbLender = r => ({
+  id: r.id, category: r.category, location: r.location,
+  bankName: r.bank_name, contactName: r.contact_name,
+  email: r.email, phone: r.phone,
+  assistantPhone: r.assistant_phone, assistantName: r.assistant_name,
+  lenderType: r.lender_type, notes: r.notes,
+  rate: r.rate, minLoan: r.min_loan, maxLoan: r.max_loan,
+  address: r.address, createdBy: r.created_by,
+  termsFileName: r.terms_file_name, termsFileData: r.terms_file_data,
+});
+
+const toDbWorker = w => ({
+  id: w.id, name: w.name, email: w.email, password: w.password,
+  role: w.role || "worker", commission: w.commission || "",
+});
+const fromDbWorker = r => ({ ...r });
 
 // ─────────────────────────────────────────────────────────────
 // GOOGLE MAPS CONFIG
@@ -67,33 +146,8 @@ const PAYMENT_STATUSES = [
 ];
 
 // ─────────────────────────────────────────────────────────────
-// LENDER DATA
+// LENDER CATEGORIES / LOCATIONS — static config (not stored data)
 // ─────────────────────────────────────────────────────────────
-const INITIAL_LENDERS = [
-  { id: 1, category: "Permanent", location: "California", bankName: "Pacific Trust Bank", contactName: "Sarah Chen", email: "s.chen@pacifictrust.com", phone: "(415) 555-0192", assistantPhone: "(415) 555-0193", assistantName: "Mark Rivera", lenderType: "Direct Lender", notes: "Excellent rates for jumbo loans. Preferred partner.", rate: 6.75, minLoan: 500000, maxLoan: 5000000 },
-  { id: 2, category: "Permanent", location: "Texas", bankName: "Lone Star Capital", contactName: "James Whitfield", email: "j.whitfield@lonestar.com", phone: "(713) 555-0247", assistantPhone: "", assistantName: "", lenderType: "Correspondent", notes: "Strong in commercial permanent financing.", rate: 7.10, minLoan: 250000, maxLoan: 10000000 },
-  { id: 3, category: "Bridge to Perm", location: "New York", bankName: "Hudson Bridge Finance", contactName: "Alexandra Novak", email: "a.novak@hudsonbridge.com", phone: "(212) 555-0384", assistantPhone: "(212) 555-0385", assistantName: "Daniel Park", lenderType: "Portfolio Lender", notes: "Fast close, 30-day guarantee. Great for value-add.", rate: 8.50, minLoan: 1000000, maxLoan: 50000000 },
-  { id: 4, category: "Bridge to Perm", location: "Florida", bankName: "Coastal Bridge Group", contactName: "Carlos Mendez", email: "c.mendez@coastalbridge.com", phone: "(305) 555-0561", assistantPhone: "", assistantName: "", lenderType: "Direct Lender", notes: "Specializes in multifamily bridge-to-perm.", rate: 8.25, minLoan: 500000, maxLoan: 25000000 },
-  { id: 5, category: "Construction", location: "California", bankName: "BuildFirst National", contactName: "Priya Sharma", email: "p.sharma@buildfirst.com", phone: "(818) 555-0729", assistantPhone: "(818) 555-0730", assistantName: "Tom Nguyen", lenderType: "Construction Specialist", notes: "Interest reserve required. 18-month max term.", rate: 9.00, minLoan: 750000, maxLoan: 30000000 },
-  { id: 6, category: "Owner Occupied", location: "New York", bankName: "Empire Owner Finance", contactName: "Robert Kim", email: "r.kim@empireowner.com", phone: "(646) 555-0843", assistantPhone: "", assistantName: "", lenderType: "Bank", notes: "SBA preferred lender. Owner-occ commercial only.", rate: 6.90, minLoan: 300000, maxLoan: 8000000 },
-];
-
-const INITIAL_CLIENTS = [
-  { id: 1, fullName: "Michael Torres", phones:[{number:"(212) 555-0910",tag:"Work"}], emails:["m.torres@email.com"], address: "45 Park Ave, New York, NY 10016", notes: "Fast mover. Preferred contact.", createdAt: "2025-01-15" },
-  { id: 2, fullName: "Rachel Kim",     phones:[{number:"(310) 555-0234",tag:"Mobile"}], emails:["r.kim@email.com"], address: "820 Wilshire Blvd, Los Angeles, CA 90017", notes: "", createdAt: "2025-02-03" },
-  { id: 3, fullName: "David Schwartz", phones:[{number:"(305) 555-0567",tag:"Work"},{number:"(305) 555-0568",tag:"Home"}], emails:["d.schwartz@email.com","david@schwartzgroup.com"], address: "200 Biscayne Blvd, Miami, FL 33131", notes: "Multi-unit residential client.", createdAt: "2025-02-18" },
-  { id: 4, fullName: "Linda Park",     phones:[{number:"(713) 555-0811",tag:"Work"}], emails:["l.park@email.com"], address: "900 Travis St, Houston, TX 77002", notes: "", createdAt: "2025-01-08" },
-];
-
-const INITIAL_ORGS = [
-  { id: 1, name: "Skyline Capital Group", sponsor: "First National Trust", sponsor2: "", officeContact: "Michael Torres", mgmtContact: "Realty Mgmt LLC", assistance: "Lisa Brown", loanOfficer: "David Chen", address: "350 5th Ave, New York, NY 10118", entityType: "LLC", phones: [{ number: "(212) 555-0100", tag: "Work" }], emails: ["j.whitfield@skyline.com"] },
-];
-
-const INITIAL_DEALS = [
-  { id: 1, contactId: 1, orgId: 1, address: "45 Park Ave, New York, NY 10016", value: 2500000, closingDate: "2025-06-30", createdBy: "Y. Fried", dealType: "Priority", dealStage: "commitment", paymentAmount: 15000, visibleTo: "all", notes: "Fast mover. Multi-unit deal.", createdAt: "2025-01-15" },
-  { id: 2, contactId: 2, orgId: 1, address: "820 Wilshire Blvd, Los Angeles, CA 90017", value: 850000, closingDate: "2025-09-15", createdBy: "Y. Fried", dealType: "Regular", dealStage: "intake", paymentAmount: 8500, visibleTo: "all", notes: "Waiting on ID scan.", createdAt: "2025-02-03" },
-];
-
 const CATEGORIES   = ["Permanent", "Bridge to Perm", "Construction", "Owner Occupied", "Hard Money"];
 const LOCATIONS    = ["All Locations", "California", "Texas", "New York", "Florida"];
 
@@ -108,13 +162,6 @@ const LENDER_TYPES_BY_CATEGORY = {
 const getLenderTypes = cat => LENDER_TYPES_BY_CATEGORY[cat] || ["Other"];
 // Legacy flat list kept for search/display compatibility
 const LENDER_TYPES = [...new Set(Object.values(LENDER_TYPES_BY_CATEGORY).flat())];
-
-// ─────────────────────────────────────────────────────────────
-// INITIAL WORKERS (admin only)
-// ─────────────────────────────────────────────────────────────
-const INITIAL_WORKERS = [
-  { id: 1, name: "Y. Fried", email: "yfried@pcgroupny.com", password: "pcb2027", role: "manager" },
-];
 
 // ─────────────────────────────────────────────────────────────
 // GLOBAL STYLES
@@ -404,6 +451,86 @@ function SplashScreen({ onEnter }) {
         <div style={{ color: C.ivoryDark, letterSpacing: "5px", fontSize: 9, opacity: 0.55, textTransform: "uppercase" }}>
           Broker Management Portal
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// FIRST RUN SETUP — shown only when the workers table is empty.
+// Lets you create the first manager account so you're not locked out.
+// ─────────────────────────────────────────────────────────────
+function FirstRunSetup({ onCreate }) {
+  const [name, setName]         = useState("");
+  const [email, setEmail]       = useState("");
+  const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState("");
+
+  const submit = async () => {
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      setError("All fields are required."); return;
+    }
+    setSaving(true); setError("");
+    try {
+      await onCreate({ id: Date.now(), name: name.trim(), email: email.trim(), password, role: "manager", commission: "" });
+    } catch (e) {
+      setError(e.message || "Something went wrong.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight: "100vh", background: C.charcoal,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: "20px", fontFamily: "Georgia, serif",
+    }}>
+      <div className="anim-fade-up" style={{
+        background: "#222", borderRadius: 16, padding: "40px 32px",
+        width: "100%", maxWidth: 400, boxShadow: "0 0 80px rgba(0,0,0,0.6)",
+      }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <PCBLogo size={84} darkBg />
+          <div style={{ color: C.gold, fontSize: 9, letterSpacing: 3, marginTop: 16 }}>FIRST-TIME SETUP</div>
+          <h2 style={{ color: "white", fontSize: 18, fontWeight: "normal", margin: "8px 0 0" }}>Create your manager account</h2>
+          <div style={{ color: "#888", fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>
+            No team members exist yet. Create the first manager login to get started.
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ ...fieldLabel, color: "#999" }}>FULL NAME</div>
+          <input value={name} onChange={e => setName(e.target.value)}
+            style={{ ...inputStyle, background: "#2a2a2a", border: "1.5px solid #444", color: "white" }} />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ ...fieldLabel, color: "#999" }}>EMAIL</div>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+            style={{ ...inputStyle, background: "#2a2a2a", border: "1.5px solid #444", color: "white" }} />
+        </div>
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ ...fieldLabel, color: "#999" }}>PASSWORD</div>
+          <div style={{ position: "relative" }}>
+            <input type={showPass ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
+              style={{ ...inputStyle, background: "#2a2a2a", border: "1.5px solid #444", color: "white", paddingRight: 44 }} />
+            <button type="button" onClick={() => setShowPass(v => !v)}
+              style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#999", padding: 0, display: "flex", alignItems: "center" }}>
+              <EyeIcon open={showPass} />
+            </button>
+          </div>
+        </div>
+
+        {error && <div style={{ color: C.danger, fontSize: 12, marginBottom: 14, textAlign: "center" }}>{error}</div>}
+
+        <button onClick={submit} disabled={saving} className="btn-transition" style={{
+          width: "100%", padding: "14px", background: C.goldDark, color: "white",
+          border: "none", borderRadius: 12, cursor: saving ? "default" : "pointer",
+          fontSize: 13, fontWeight: "bold", letterSpacing: 1, opacity: saving ? 0.6 : 1,
+        }}>
+          {saving ? "Creating…" : "CREATE MANAGER ACCOUNT"}
+        </button>
       </div>
     </div>
   );
@@ -3720,9 +3847,11 @@ function DealsView({ deals, clients, orgs, onAdd, onEdit, onDelete, onStageChang
 export default function App() {
   const [splash,           setSplash]           = useState(true);
   const [user,             setUser]             = useState(null);
-  const [workers,          setWorkers]          = useState(INITIAL_WORKERS);
-  const [lenders,          setLenders]          = useState(INITIAL_LENDERS);
-  const [clients,          setClients]          = useState(INITIAL_CLIENTS);
+  const [workers,          setWorkers]          = useState([]);
+  const [lenders,          setLenders]          = useState([]);
+  const [clients,          setClients]          = useState([]);
+  const [dataLoading,      setDataLoading]      = useState(true);
+  const [dataError,        setDataError]        = useState("");
   const [view,             setView]             = useState("dashboard");
   const [sidebarOpen,      setSidebarOpen]      = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -3731,8 +3860,8 @@ export default function App() {
   const [formMode,         setFormMode]         = useState(null);
   const [clientFormOpen,   setClientFormOpen]   = useState(false);
   const [editingClient,    setEditingClient]    = useState(null);
-  const [orgs,             setOrgs]             = useState(INITIAL_ORGS);
-  const [deals,            setDeals]            = useState(INITIAL_DEALS);
+  const [orgs,             setOrgs]             = useState([]);
+  const [deals,            setDeals]            = useState([]);
   const [orgFormOpen,       setOrgFormOpen]      = useState(false);
   const [editingOrg,        setEditingOrg]       = useState(null);
   const [dealFormOpen,      setDealFormOpen]     = useState(false);
@@ -3741,6 +3870,35 @@ export default function App() {
   const [addContactInline,  setAddContactInline] = useState(null);
   // Inline "Add New Org" — from DealForm
   const [addOrgInline,      setAddOrgInline]     = useState(null);
+
+  // ── Load everything from Supabase once, on app start ──────────
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [wRes, cRes, oRes, dRes, lRes] = await Promise.all([
+          supabase.from("workers").select("*"),
+          supabase.from("clients").select("*"),
+          supabase.from("orgs").select("*"),
+          supabase.from("deals").select("*"),
+          supabase.from("lenders").select("*"),
+        ]);
+        if (cancelled) return;
+        const firstError = [wRes, cRes, oRes, dRes, lRes].find(r => r.error);
+        if (firstError) { setDataError(firstError.error.message); setDataLoading(false); return; }
+
+        setWorkers((wRes.data || []).map(fromDbWorker));
+        setClients((cRes.data || []).map(fromDbClient));
+        setOrgs((oRes.data || []).map(fromDbOrg));
+        setDeals((dRes.data || []).map(fromDbDeal));
+        setLenders((lRes.data || []).map(fromDbLender));
+        setDataLoading(false);
+      } catch (err) {
+        if (!cancelled) { setDataError(err.message || "Failed to load data."); setDataLoading(false); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Restrict workers to their allowed views
   const defaultView = user?.role === "manager" ? "dashboard" : user?.role === "associate_broker" ? "categories" : "clients";
@@ -3768,8 +3926,14 @@ export default function App() {
   const handleLocationSelect  = loc => { setSelectedLocation(loc); setView("lenders"); };
   const handleLenderEdit      = l   => { setEditingLender({ ...l }); setFormMode("edit"); setView("form"); };
   const handleLenderAdd       = ()  => { setEditingLender(null); setFormMode("add"); setView("form"); };
-  const handleLenderDelete    = id  => setLenders(ls => ls.filter(l => l.id !== id));
-  const handleLenderSave = form => {
+
+  const handleLenderDelete = async id => {
+    setLenders(ls => ls.filter(l => l.id !== id)); // optimistic
+    const { error } = await supabase.from("lenders").delete().eq("id", id);
+    if (error) alert("Failed to delete lender: " + error.message);
+  };
+
+  const handleLenderSave = async form => {
     if (!form.bankName) { alert("Bank name is required."); return; }
     const cleanedForm = {
       ...form,
@@ -3777,23 +3941,29 @@ export default function App() {
       minLoan: parseInt(form.minLoan) || 0,
       maxLoan: parseInt(form.maxLoan) || 0,
     };
+    let saved;
     if (formMode === "edit") {
-      setLenders(ls => ls.map(l => l.id === editingLender.id ? { ...cleanedForm, id: editingLender.id, createdBy: l.createdBy || cleanedForm.createdBy } : l));
+      saved = { ...cleanedForm, id: editingLender.id, createdBy: editingLender.createdBy || cleanedForm.createdBy };
+      setLenders(ls => ls.map(l => l.id === editingLender.id ? saved : l));
     } else {
-      const newLender = { ...cleanedForm, id: Date.now(), createdBy: cleanedForm.createdBy || user?.name || "" };
-      setLenders(ls => [...ls, newLender]);
+      saved = { ...cleanedForm, id: Date.now(), createdBy: cleanedForm.createdBy || user?.name || "" };
+      setLenders(ls => [...ls, saved]);
       setSelectedCategory(cleanedForm.category || selectedCategory);
       setSelectedLocation(cleanedForm.location  || "All Locations");
     }
     setEditingLender(null);
     setFormMode(null);
     setView("lenders");
+
+    const { error } = await supabase.from("lenders").upsert(toDbLender(saved));
+    if (error) alert("Failed to save lender: " + error.message);
   };
 
   // Client handlers
-  const handleClientSave = form => {
+  const handleClientSave = async form => {
     let saved;
-    if (editingClient) {
+    const isEdit = !!editingClient;
+    if (isEdit) {
       saved = { ...form, id: editingClient.id, createdAt: editingClient.createdAt };
       setClients(cs => cs.map(c => c.id === editingClient.id ? saved : c));
     } else {
@@ -3813,18 +3983,44 @@ export default function App() {
         setOrgFormOpen(true);
       }
     }
+    const { error } = await supabase.from("clients").upsert(toDbClient(saved));
+    if (error) alert("Failed to save contact: " + error.message);
   };
   const handleClientEdit   = c  => { setEditingClient(c); setClientFormOpen(true); };
-  const handleClientDelete = id => setClients(cs => cs.filter(c => c.id !== id));
-  const handleStageChange  = (id, stage) => setClients(cs => cs.map(c => c.id === id ? { ...c, dealStage: stage } : c));
+
+  const handleClientDelete = async id => {
+    setClients(cs => cs.filter(c => c.id !== id)); // optimistic
+    const { error } = await supabase.from("clients").delete().eq("id", id);
+    if (error) alert("Failed to delete contact: " + error.message);
+  };
+
+  const handleStageChange = async (id, stage) => {
+    setClients(cs => cs.map(c => c.id === id ? { ...c, dealStage: stage } : c));
+    const { error } = await supabase.from("clients").update({ deal_stage: stage }).eq("id", id);
+    if (error) alert("Failed to update stage: " + error.message);
+  };
 
   // Worker handlers
-  const handleAddWorker    = w  => setWorkers(ws => [...ws, w]);
-  const handleDeleteWorker = id => setWorkers(ws => ws.filter(w => w.id !== id));
-  const handleUpdateWorker = w  => setWorkers(ws => ws.map(x => x.id === w.id ? { ...w } : x));
+  const handleAddWorker = async w => {
+    setWorkers(ws => [...ws, w]); // optimistic
+    const { error } = await supabase.from("workers").insert(toDbWorker(w));
+    if (error) { alert("Failed to add worker: " + error.message); setWorkers(ws => ws.filter(x => x.id !== w.id)); }
+  };
+
+  const handleDeleteWorker = async id => {
+    setWorkers(ws => ws.filter(w => w.id !== id)); // optimistic
+    const { error } = await supabase.from("workers").delete().eq("id", id);
+    if (error) alert("Failed to delete worker: " + error.message);
+  };
+
+  const handleUpdateWorker = async w => {
+    setWorkers(ws => ws.map(x => x.id === w.id ? { ...w } : x)); // optimistic
+    const { error } = await supabase.from("workers").update(toDbWorker(w)).eq("id", w.id);
+    if (error) alert("Failed to update worker: " + error.message);
+  };
 
   // Org handlers
-  const handleOrgSave = form => {
+  const handleOrgSave = async form => {
     let saved;
     if (editingOrg) {
       saved = { ...form, id: editingOrg.id };
@@ -3840,21 +4036,73 @@ export default function App() {
       setAddOrgInline(null);
       setDealFormOpen(true);
     }
+    const { error } = await supabase.from("orgs").upsert(toDbOrg(saved));
+    if (error) alert("Failed to save organization: " + error.message);
   };
-  const handleOrgEdit   = o  => { setEditingOrg(o); setOrgFormOpen(true); };
-  const handleOrgDelete = id => setOrgs(os => os.filter(o => o.id !== id));
+  const handleOrgEdit = o => { setEditingOrg(o); setOrgFormOpen(true); };
+
+  const handleOrgDelete = async id => {
+    setOrgs(os => os.filter(o => o.id !== id)); // optimistic
+    const { error } = await supabase.from("orgs").delete().eq("id", id);
+    if (error) alert("Failed to delete organization: " + error.message);
+  };
 
   // Deal handlers
-  const handleDealSave = form => {
+  const handleDealSave = async form => {
+    let saved;
     if (editingDeal) {
-      setDeals(ds => ds.map(d => d.id === editingDeal.id ? { ...form, id: editingDeal.id, createdAt: editingDeal.createdAt } : d));
+      saved = { ...form, id: editingDeal.id, createdAt: editingDeal.createdAt };
+      setDeals(ds => ds.map(d => d.id === editingDeal.id ? saved : d));
     } else {
-      setDeals(ds => [...ds, { ...form, id: Date.now(), createdAt: new Date().toISOString().slice(0,10) }]);
+      saved = { ...form, id: Date.now(), createdAt: new Date().toISOString().slice(0, 10) };
+      setDeals(ds => [...ds, saved]);
     }
     setDealFormOpen(false); setEditingDeal(null);
+    const { error } = await supabase.from("deals").upsert(toDbDeal(saved));
+    if (error) alert("Failed to save deal: " + error.message);
   };
-  const handleDealEdit   = d  => { setEditingDeal(d); setDealFormOpen(true); };
-  const handleDealDelete = id => setDeals(ds => ds.filter(d => d.id !== id));
+  const handleDealEdit = d => { setEditingDeal(d); setDealFormOpen(true); };
+
+  const handleDealDelete = async id => {
+    setDeals(ds => ds.filter(d => d.id !== id)); // optimistic
+    const { error } = await supabase.from("deals").delete().eq("id", id);
+    if (error) alert("Failed to delete deal: " + error.message);
+  };
+
+  // Deal stage change (used in DealsView pipeline drag/click)
+  const handleDealStageChange = async (id, stage) => {
+    setDeals(ds => ds.map(d => d.id === id ? { ...d, dealStage: stage } : d));
+    const { error } = await supabase.from("deals").update({ deal_stage: stage }).eq("id", id);
+    if (error) alert("Failed to update deal stage: " + error.message);
+  };
+
+  // Mark a single deal as paid for a given worker
+  const handlePayDeal = async (dealId, workerName) => {
+    const deal = deals.find(d => d.id === dealId);
+    if (!deal) return;
+    const updatedPaidWorkers = { ...(deal.paidWorkers || {}), [workerName]: true };
+    setDeals(ds => ds.map(d => d.id === dealId ? { ...d, paidWorkers: updatedPaidWorkers } : d));
+    const { error } = await supabase.from("deals").update({ paid_workers: updatedPaidWorkers }).eq("id", dealId);
+    if (error) alert("Failed to mark deal as paid: " + error.message);
+  };
+
+  // Mark several deals as paid for a given worker (bulk "pay all")
+  const handlePayAllDeals = async (dealIds, workerName) => {
+    const updates = deals
+      .filter(d => dealIds.includes(d.id))
+      .map(d => ({ id: d.id, paidWorkers: { ...(d.paidWorkers || {}), [workerName]: true } }));
+
+    setDeals(ds => ds.map(d => {
+      const match = updates.find(u => u.id === d.id);
+      return match ? { ...d, paidWorkers: match.paidWorkers } : d;
+    }));
+
+    const results = await Promise.all(
+      updates.map(u => supabase.from("deals").update({ paid_workers: u.paidWorkers }).eq("id", u.id))
+    );
+    const failed = results.find(r => r.error);
+    if (failed) alert("Failed to mark some deals as paid: " + failed.error.message);
+  };
 
   const handleLogin = loggedInUser => {
     setUser(loggedInUser);
@@ -3869,6 +4117,52 @@ export default function App() {
       <SplashScreen onEnter={() => setSplash(false)} />
     </>
   );
+
+  if (dataLoading) return (
+    <>
+      <GlobalStyles />
+      <div style={{
+        minHeight: "100vh", background: C.charcoal, display: "flex",
+        flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16,
+      }}>
+        <PCBLogo size={100} darkBg />
+        <div style={{ color: C.ivoryDark, fontSize: 11, letterSpacing: 2 }}>Loading your data…</div>
+      </div>
+    </>
+  );
+
+  if (dataError) return (
+    <>
+      <GlobalStyles />
+      <div style={{
+        minHeight: "100vh", background: C.charcoal, display: "flex",
+        flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24, textAlign: "center",
+      }}>
+        <div style={{ fontSize: 32 }}>⚠️</div>
+        <div style={{ color: "white", fontSize: 14, maxWidth: 420, lineHeight: 1.6 }}>
+          Couldn't connect to the database.<br />
+          <span style={{ color: C.ivoryDark, fontSize: 12 }}>{dataError}</span>
+        </div>
+        <div style={{ color: "#888", fontSize: 11, maxWidth: 420, lineHeight: 1.6 }}>
+          Check that supabaseClient.js has the correct URL/key, and that the tables exist with the row-level-security policies applied.
+        </div>
+      </div>
+    </>
+  );
+
+  // First run: no workers in the database yet — let anyone create the first manager account
+  if (!user && workers.length === 0) return (
+    <>
+      <GlobalStyles />
+      <FirstRunSetup onCreate={async newManager => {
+        const { error } = await supabase.from("workers").insert(toDbWorker(newManager));
+        if (error) { alert(error.message); return; }
+        setWorkers([newManager]);
+        handleLogin({ name: newManager.name, email: newManager.email, role: newManager.role });
+      }} />
+    </>
+  );
+
   if (!user) return (
     <>
       <GlobalStyles />
@@ -3899,15 +4193,15 @@ export default function App() {
       case "deals":
         return <DealsView deals={deals} clients={clients} orgs={orgs}
           onAdd={() => { setEditingDeal(null); setDealFormOpen(true); }}
-          onEdit={handleDealEdit} onDelete={handleDealDelete} onStageChange={(id,stage)=>setDeals(ds=>ds.map(d=>d.id===id?{...d,dealStage:stage}:d))} />;
+          onEdit={handleDealEdit} onDelete={handleDealDelete} onStageChange={handleDealStageChange} />;
       case "settings":
         if (user.role !== "manager") { setView("clients"); return null; }
         return <SettingsView workers={workers} onAddWorker={handleAddWorker} onDeleteWorker={handleDeleteWorker} onUpdateWorker={handleUpdateWorker} />;
       case "workers":
         if (user.role !== "manager") { setView("clients"); return null; }
         return <WorkersView deals={deals} workers={workers}
-          onPayDeal={(dealId, workerName) => setDeals(ds => ds.map(d => d.id===dealId ? { ...d, paidWorkers: { ...(d.paidWorkers||{}), [workerName]: true } } : d))}
-          onPayAllDeals={(dealIds, workerName) => setDeals(ds => ds.map(d => dealIds.includes(d.id) ? { ...d, paidWorkers: { ...(d.paidWorkers||{}), [workerName]: true } } : d))}
+          onPayDeal={handlePayDeal}
+          onPayAllDeals={handlePayAllDeals}
         />;
       default:
         if (user.role === "associate_broker") return <CategorySelect onSelect={handleCategorySelect} />;
@@ -3987,4 +4281,4 @@ export default function App() {
       </div>
     </>
   );
-            }
+  }
