@@ -7,7 +7,78 @@ import { supabase } from "./supabaseClient";
 // These convert both directions so the rest of the app code
 // (forms, cards, etc.) never has to change.
 // ─────────────────────────────────────────────────────────────
+const toDbClient = c => ({
+  id: c.id, full_name: c.fullName, phones: c.phones || [],
+  emails: c.emails || [], address: c.address || "", notes: c.notes || "",
+  created_at: c.createdAt || new Date().toISOString().slice(0, 10),
+});
+const fromDbClient = r => ({
+  id: r.id, fullName: r.full_name, phones: r.phones || [],
+  emails: r.emails || [], address: r.address || "", notes: r.notes || "",
+  createdAt: r.created_at,
+});
 
+const toDbOrg = o => ({
+  id: o.id, name: o.name, sponsor: o.sponsor || "", sponsor2: o.sponsor2 || "",
+  office_contact: o.officeContact || "", mgmt_contact: o.mgmtContact || "",
+  assistance: o.assistance || "", loan_officer: o.loanOfficer || "",
+  address: o.address || "", entity_type: o.entityType || "LLC",
+  phones: o.phones || [], emails: o.emails || [],
+});
+const fromDbOrg = r => ({
+  id: r.id, name: r.name, sponsor: r.sponsor, sponsor2: r.sponsor2,
+  officeContact: r.office_contact, mgmtContact: r.mgmt_contact,
+  assistance: r.assistance, loanOfficer: r.loan_officer,
+  address: r.address, entityType: r.entity_type,
+  phones: r.phones || [], emails: r.emails || [],
+});
+
+const toDbDeal = d => ({
+  id: d.id, contact_id: d.contactId || null, org_id: d.orgId || null,
+  address: d.address || "", value: d.value || 0, closing_date: d.closingDate || "",
+  created_by: d.createdBy || "", deal_type: d.dealType || "Regular",
+  deal_stage: d.dealStage || "intake", payment_amount: d.paymentAmount || 0,
+  visible_to: d.visibleTo || "all", notes: d.notes || "",
+  created_at: d.createdAt || new Date().toISOString().slice(0, 10),
+  deal_notes: d.dealNotes || [], deal_files: d.dealFiles || {},
+  paid_workers: d.paidWorkers || {},
+});
+const fromDbDeal = r => ({
+  id: r.id, contactId: r.contact_id, orgId: r.org_id,
+  address: r.address, value: r.value, closingDate: r.closing_date,
+  createdBy: r.created_by, dealType: r.deal_type, dealStage: r.deal_stage,
+  paymentAmount: r.payment_amount, visibleTo: r.visible_to, notes: r.notes,
+  createdAt: r.created_at, dealNotes: r.deal_notes || [],
+  dealFiles: r.deal_files || { folders: [], rootFiles: [] },
+  paidWorkers: r.paid_workers || {},
+});
+
+const toDbLender = l => ({
+  id: l.id, category: l.category || "", location: l.location || "",
+  bank_name: l.bankName || "", contact_name: l.contactName || "",
+  email: l.email || "", phone: l.phone || "",
+  assistant_phone: l.assistantPhone || "", assistant_name: l.assistantName || "",
+  lender_type: l.lenderType || "", notes: l.notes || "",
+  rate: l.rate || 0, min_loan: l.minLoan || 0, max_loan: l.maxLoan || 0,
+  address: l.address || "", created_by: l.createdBy || "",
+  terms_file_name: l.termsFileName || "", terms_file_data: l.termsFileData || null,
+});
+const fromDbLender = r => ({
+  id: r.id, category: r.category, location: r.location,
+  bankName: r.bank_name, contactName: r.contact_name,
+  email: r.email, phone: r.phone,
+  assistantPhone: r.assistant_phone, assistantName: r.assistant_name,
+  lenderType: r.lender_type, notes: r.notes,
+  rate: r.rate, minLoan: r.min_loan, maxLoan: r.max_loan,
+  address: r.address, createdBy: r.created_by,
+  termsFileName: r.terms_file_name, termsFileData: r.terms_file_data,
+});
+
+const toDbWorker = w => ({
+  id: w.id, name: w.name, email: w.email, password: w.password,
+  role: w.role || "worker", commission: w.commission || "",
+});
+const fromDbWorker = r => ({ ...r });
 
 // ─────────────────────────────────────────────────────────────
 // GOOGLE MAPS CONFIG
