@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 // ── PASTE YOUR VALUES BELOW ────────────────────────────────────
 // Get these from: Supabase Dashboard → Project Settings → API
 const supabaseUrl = 'hplqwdimaxjapgtbihrn';
-const supabaseAnonKey = 'sb_publishable_ffa2bwGWnStFrovz1tdAfA_WXZ04iw3';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwbHF3ZGltYXhqYXBndGJpaHJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzOTA3OTQsImV4cCI6MjA5Mzk2Njc5NH0.slmnK5NViGkc1ANQf6Okuvd9Edw3QcEQi4IiJSCmy5g';
 // ────────────────────────────────────────────────────────────────
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
