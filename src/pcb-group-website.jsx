@@ -58,9 +58,10 @@ const toDbLender = l => ({
   email: l.email || "", emails: l.emails || [], phones: l.phones || [],
   lender_type: l.lenderType || "", notes: l.notes || "",
   rate: l.rate || 0, min_loan: l.minLoan || 0, max_loan: l.maxLoan || 0,
-  address: l.address || "", city: l.city || "", created_by: "b8e73456-789a-41d2-9bc5-c8e42f6d89e2"
-  });
-
+  address: l.address || "", city: l.city || "", created_by: l.createdBy || "",
+  terms_file_name: l.termsFileName || "", terms_file_data: l.termsFileData || null,
+  created_at: l.createdAt || new Date().toISOString().slice(0, 10),
+});
 const fromDbLender = r => ({
   id: r.id, name: r.name || "", category: r.category, location: r.location,
   email: r.email || "", emails: r.emails || [], phones: r.phones || [],
@@ -3968,7 +3969,7 @@ export default function App() {
       saved = { ...cleanedForm, id: editingLender.id, createdBy: editingLender.createdBy || cleanedForm.createdBy };
       setLenders(ls => ls.map(l => l.id === editingLender.id ? saved : l));
     } else {
-      saved = { ...cleanedForm, id: Date.now(), createdBy: cleanedForm.createdBy || user?.name || "" };
+      saved = { ...cleanedForm, id: crypto.randomUUID(), createdBy: cleanedForm.createdBy || user?.name || "" };
       setLenders(ls => [...ls, saved]);
       setSelectedCategory(cleanedForm.category || selectedCategory);
       setSelectedLocation(cleanedForm.location  || "All Locations");
@@ -4324,4 +4325,4 @@ export default function App() {
       </div>
     </>
   );
-    }
+                                              }
