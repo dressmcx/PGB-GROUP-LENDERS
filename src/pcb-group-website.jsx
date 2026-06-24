@@ -3978,14 +3978,28 @@ export default function App() {
     setFormMode(null);
     setView("search");
 
-    // Save to Supabase regardless of address formatting — address is plain text,
-    // never blocks the save, and any DB error is reported without undoing the
-    // local save (the lender already appears in the list above).
-    try {
-      const { error } = await supabase.from("lenders").upsert(toDbLender(saved));
-      if (error) alert("Saved locally, but failed to sync to the database: " + error.message);
-    } catch (e) {
-      alert("Saved locally, but failed to sync to the database: " + (e?.message || e));
+    // Save to Supabase. If a column doesn't exist on the actual table yet
+    // (stale schema cache, or a column like "address" that was never created),
+    // PostgREST returns an error naming that exact column. We strip it from
+    // the payload and retry — so the lender always saves with whatever
+    // columns actually exist on the table, instead of failing outright.
+    let payload = toDbLender(saved);
+    for (let attempt = 0; attempt < 12; attempt++) {
+      try {
+        const { error } = await supabase.from("lenders").upsert(payload);
+        if (!error) return;
+        const missingCol = /Could not find the '(\w+)' column/.exec(error.message || "");
+        if (missingCol && missingCol[1] in payload) {
+          const { [missingCol[1]]: _drop, ...rest } = payload;
+          payload = rest;
+          continue; // retry without that column
+        }
+        alert("Saved locally, but failed to sync to the database: " + error.message);
+        return;
+      } catch (e) {
+        alert("Saved locally, but failed to sync to the database: " + (e?.message || e));
+        return;
+      }
     }
   };
 
@@ -4311,4 +4325,4 @@ export default function App() {
       </div>
     </>
   );
-   }
+    }
