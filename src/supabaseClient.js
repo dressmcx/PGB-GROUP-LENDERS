@@ -7,3 +7,10 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 // ────────────────────────────────────────────────────────────────
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_ANON_KEY
+);
+
+export default supabase;
