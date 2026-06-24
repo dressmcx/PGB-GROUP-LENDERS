@@ -671,14 +671,14 @@ function Header({ user, onLogout, onHome, onMenuToggle, sidebarOpen }) {
 function Sidebar({ activeNav, onNavigate, isOpen, onClose, userRole }) {
   const mainLinks = userRole === "associate_broker"
     ? [
-        { id: "categories", label: "Lenders", icon: "⊞" },
+        { id: "search", label: "Lenders", icon: "⊞" },
       ]
     : [
         { id: "dashboard",  label: "Dashboard", icon: "◈" },
         { id: "clients",    label: "Contacts",  icon: "👤" },
         { id: "orgs",       label: "Orgs",      icon: "🏢" },
         { id: "deals",      label: "Deals",     icon: "🤝" },
-        { id: "categories", label: "Lenders",   icon: "⊞" },
+        { id: "search",     label: "Lenders",   icon: "⊞" },
         ...(userRole === "manager" ? [
           { id: "workers",  label: "Workers",   icon: "📊" },
           { id: "settings", label: "Settings",  icon: "⚙" },
@@ -2222,24 +2222,41 @@ function LenderList({ lenders, category, location, onEdit, onDelete, onAdd, onBa
 // ─────────────────────────────────────────────────────────────
 // SEARCH VIEW
 // ─────────────────────────────────────────────────────────────
-function SearchView({ lenders, onEdit, onDelete }) {
+function SearchView({ lenders, onEdit, onDelete, onAdd }) {
   const [q, setQ]           = useState("");
   const [catFilter, setCat] = useState("All");
   const [locFilter, setLoc] = useState("All Locations");
 
-  const results = lenders.filter(l => {
-    const qLow = q.toLowerCase();
-    const match = !q || [l.name, l.email, ...(l.emails || []), ...(l.phones || []).map(p => p?.number), l.lenderType, l.notes, String(l.rate)]
-      .some(f => (f || "").toLowerCase().includes(qLow));
-    return match && (catFilter === "All" || l.category === catFilter) && (locFilter === "All Locations" || l.location === locFilter);
-  });
+  const results = lenders
+    .filter(l => {
+      const qLow = q.toLowerCase();
+      const match = !q || [l.name, l.email, ...(l.emails || []), ...(l.phones || []).map(p => p?.number), l.lenderType, l.notes, String(l.rate)]
+        .some(f => (f || "").toLowerCase().includes(qLow));
+      return match && (catFilter === "All" || l.category === catFilter) && (locFilter === "All Locations" || l.location === locFilter);
+    })
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
   return (
     <div style={{ padding: "20px 16px 90px", maxWidth: 1000, margin: "0 auto", width: "100%" }}>
-      <div style={{ color: C.goldDark, fontSize: 9, letterSpacing: 4, marginBottom: 4 }}>LENDER SEARCH</div>
-      <h2 style={{ color: C.charcoal, margin: "0 0 20px", fontSize: 22, fontFamily: "Georgia, serif", fontWeight: "normal" }}>Search All Lenders</h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ color: C.goldDark, fontSize: 9, letterSpacing: 4, marginBottom: 4 }}>DIRECTORY</div>
+          <h2 style={{ color: C.charcoal, margin: 0, fontSize: 22, fontFamily: "Georgia, serif", fontWeight: "normal" }}>
+            Lenders <span style={{ color: "#bbb", fontSize: 16 }}>({lenders.length})</span>
+          </h2>
+        </div>
+        {onAdd && (
+          <button onClick={onAdd} className="btn-transition" style={{
+            padding: "12px 20px", background: C.charcoal, color: C.gold,
+            border: "none", borderRadius: 12, cursor: "pointer", fontSize: 12, letterSpacing: 2,
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span style={{ fontSize: 18 }}>+</span> ADD LENDER
+          </button>
+        )}
+      </div>
       <div style={{ background: "white", border: `1px solid ${C.ivoryDark}`, borderRadius: 14, padding: "16px", marginBottom: 20 }}>
-        <input type="text" placeholder="🔍  Search by name, email, rate, notes…"
+        <input type="text" placeholder="🔍  Search by name, email, phone, rate, notes…"
           value={q} onChange={e => setQ(e.target.value)}
           style={{ ...inputStyle, marginBottom: 10, fontSize: 13 }}
         />
@@ -2256,7 +2273,12 @@ function SearchView({ lenders, onEdit, onDelete }) {
         </div>
       </div>
       <div style={{ color: "#aaa", fontSize: 11, marginBottom: 12 }}>{results.length} result{results.length !== 1 ? "s" : ""}</div>
-      {results.map(l => <LenderCard key={l.id} lender={l} onEdit={onEdit} onDelete={onDelete} />)}
+      {results.length === 0
+        ? <div style={{ textAlign: "center", padding: "50px 0", color: "#bbb", fontSize: 14 }}>
+            No lenders found. {onAdd && <span style={{ color: C.goldDark, cursor: "pointer" }} onClick={onAdd}>Add one →</span>}
+          </div>
+        : results.map(l => <LenderCard key={l.id} lender={l} onEdit={onEdit} onDelete={onDelete} />)
+      }
     </div>
   );
 }
@@ -3902,16 +3924,16 @@ export default function App() {
   }, []);
 
   // Restrict workers to their allowed views
-  const defaultView = user?.role === "manager" ? "dashboard" : user?.role === "associate_broker" ? "categories" : "clients";
+  const defaultView = user?.role === "manager" ? "dashboard" : user?.role === "associate_broker" ? "search" : "clients";
 
-  const activeNav = ["dashboard","clients","orgs","deals","search","settings","workers","categories","location","lenders","form"].includes(view) ? (["categories","location","lenders","form"].includes(view) ? "categories" : view) : "categories";
+  const activeNav = ["dashboard","clients","orgs","deals","search","settings","workers","categories","location","lenders","form"].includes(view) ? (["categories","location","lenders","form"].includes(view) ? "search" : view) : "search";
 
   const navigate = id => {
     setSidebarOpen(false);
     // Workers cannot access dashboard or settings
     if (user?.role !== "manager" && (id === "dashboard" || id === "settings" || id === "workers")) return;
     // Associate brokers can only access lenders
-    if (user?.role === "associate_broker" && (id === "clients" || id === "orgs" || id === "deals" || id === "search")) return;
+    if (user?.role === "associate_broker" && (id === "clients" || id === "orgs" || id === "deals")) return;
     if (id === "dashboard") setView("dashboard");
     else if (id === "clients") setView("clients");
     else if (id === "orgs") setView("orgs");
@@ -3919,7 +3941,7 @@ export default function App() {
     else if (id === "search") setView("search");
     else if (id === "workers") setView("workers");
     else if (id === "settings") setView("settings");
-    else setView("categories");
+    else setView("search");
   };
 
   // Lender handlers
@@ -3954,10 +3976,17 @@ export default function App() {
     }
     setEditingLender(null);
     setFormMode(null);
-    setView("lenders");
+    setView("search");
 
-    const { error } = await supabase.from("lenders").upsert(toDbLender(saved));
-    if (error) alert("Failed to save lender: " + error.message);
+    // Save to Supabase regardless of address formatting — address is plain text,
+    // never blocks the save, and any DB error is reported without undoing the
+    // local save (the lender already appears in the list above).
+    try {
+      const { error } = await supabase.from("lenders").upsert(toDbLender(saved));
+      if (error) alert("Saved locally, but failed to sync to the database: " + error.message);
+    } catch (e) {
+      alert("Saved locally, but failed to sync to the database: " + (e?.message || e));
+    }
   };
 
   // Client handlers
@@ -4108,7 +4137,7 @@ export default function App() {
   const handleLogin = loggedInUser => {
     setUser(loggedInUser);
     if (loggedInUser.role === "manager") setView("dashboard");
-    else if (loggedInUser.role === "associate_broker") setView("categories");
+    else if (loggedInUser.role === "associate_broker") setView("search");
     else setView("clients");
   };
 
@@ -4175,9 +4204,9 @@ export default function App() {
     switch (view) {
       case "form":
         return <LenderForm initial={editingLender} defaultCategory={selectedCategory} defaultLocation={selectedLocation}
-          onSave={handleLenderSave} onCancel={() => setView("lenders")} currentUser={user} />;
+          onSave={handleLenderSave} onCancel={() => setView("search")} currentUser={user} />;
       case "search":
-        return <SearchView lenders={lenders} onEdit={handleLenderEdit} onDelete={handleLenderDelete} />;
+        return <SearchView lenders={lenders} onEdit={handleLenderEdit} onDelete={handleLenderDelete} onAdd={handleLenderAdd} />;
       case "lenders":
         return <LenderList lenders={lenders} category={selectedCategory} location={selectedLocation}
           onEdit={handleLenderEdit} onDelete={handleLenderDelete} onAdd={handleLenderAdd} onBack={() => setView("location")} />;
@@ -4205,7 +4234,7 @@ export default function App() {
           onPayAllDeals={handlePayAllDeals}
         />;
       default:
-        if (user.role === "associate_broker") return <CategorySelect onSelect={handleCategorySelect} />;
+        if (user.role === "associate_broker") return <SearchView lenders={lenders} onEdit={handleLenderEdit} onDelete={handleLenderDelete} onAdd={handleLenderAdd} />;
         if (user.role !== "manager") return <ClientsView clients={clients} onAdd={() => { setEditingClient(null); setClientFormOpen(true); }}
           onEdit={handleClientEdit} onDelete={handleClientDelete} />;
         return <Dashboard lenders={lenders} clients={clients} deals={deals} user={user} onCategorySelect={handleCategorySelect} onNavigate={navigate} />;
@@ -4282,4 +4311,4 @@ export default function App() {
       </div>
     </>
   );
-    }
+   }
