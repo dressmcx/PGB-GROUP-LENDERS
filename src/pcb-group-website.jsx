@@ -79,6 +79,43 @@ const toDbWorker = w => ({
 const fromDbWorker = r => ({ ...r });
 
 // ─────────────────────────────────────────────────────────────
+// RESILIENT SAVE — used by every "Save" handler (lenders, clients,
+// orgs, deals). If Postgres rejects the write because a column doesn't
+// exist yet (stale schema cache) or a value's type doesn't match the
+// column (e.g. a plain name landing in a uuid column), this strips
+// just that one field and retries — so the record always saves with
+// whatever columns the table can actually accept, instead of failing
+// outright. Returns { error: null } on success, or { error: message }
+// if nothing could be saved at all.
+// ─────────────────────────────────────────────────────────────
+async function upsertResilient(table, payload) {
+  let p = { ...payload };
+  for (let attempt = 0; attempt < 15; attempt++) {
+    const { error } = await supabase.from(table).upsert(p);
+    if (!error) return { error: null };
+    const msg = error.message || "";
+    const missingCol = /Could not find the '(\w+)' column/.exec(msg);
+    if (missingCol && missingCol[1] in p) {
+      const { [missingCol[1]]: _drop, ...rest } = p;
+      p = rest;
+      continue; // retry without that column
+    }
+    const badValue = /invalid input syntax for type \w+: "([^"]+)"|invalid input syntax for type \w+: '([^']+)'/.exec(msg);
+    if (badValue) {
+      const offending = badValue[1] || badValue[2];
+      const culpritKey = Object.keys(p).find(k => String(p[k]) === offending);
+      if (culpritKey) {
+        const { [culpritKey]: _drop, ...rest } = p;
+        p = rest;
+        continue; // retry without the field that had the wrong type
+      }
+    }
+    return { error: msg }; // not a pattern we can auto-fix
+  }
+  return { error: "Could not sync after multiple attempts — too many incompatible columns." };
+}
+
+// ─────────────────────────────────────────────────────────────
 // GOOGLE MAPS CONFIG
 // ─────────────────────────────────────────────────────────────
 const GOOGLE_API_KEY = process.env.REACT_APP_GOOGLE_API_KEY;
@@ -472,7 +509,7 @@ function FirstRunSetup({ onCreate }) {
     }
     setSaving(true); setError("");
     try {
-      await onCreate({ id: Date.now(), name: name.trim(), email: email.trim(), password, role: "manager", commission: "" });
+      await onCreate({ id: crypto.randomUUID(), name: name.trim(), email: email.trim(), password, role: "manager", commission: "" });
     } catch (e) {
       setError(e.message || "Something went wrong.");
       setSaving(false);
@@ -2906,7 +2943,7 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker, onUpdateWorker }) 
     if (workers.find(w => w.email.toLowerCase() === form.email.toLowerCase())) {
       alert("A worker with this email already exists."); return;
     }
-    onAddWorker({ ...form, id: Date.now() });
+    onAddWorker({ ...form, id: crypto.randomUUID() });
     setForm(blankWorker);
   };
 
@@ -3978,29 +4015,12 @@ export default function App() {
     setFormMode(null);
     setView("search");
 
-    // Save to Supabase. If a column doesn't exist on the actual table yet
-    // (stale schema cache, or a column like "address" that was never created),
-    // PostgREST returns an error naming that exact column. We strip it from
-    // the payload and retry — so the lender always saves with whatever
-    // columns actually exist on the table, instead of failing outright.
-    let payload = toDbLender(saved);
-    for (let attempt = 0; attempt < 12; attempt++) {
-      try {
-        const { error } = await supabase.from("lenders").upsert(payload);
-        if (!error) return;
-        const missingCol = /Could not find the '(\w+)' column/.exec(error.message || "");
-        if (missingCol && missingCol[1] in payload) {
-          const { [missingCol[1]]: _drop, ...rest } = payload;
-          payload = rest;
-          continue; // retry without that column
-        }
-        alert("Saved locally, but failed to sync to the database: " + error.message);
-        return;
-      } catch (e) {
-        alert("Saved locally, but failed to sync to the database: " + (e?.message || e));
-        return;
-      }
-    }
+    // Save to Supabase. upsertResilient automatically drops any column
+    // Postgres rejects (missing column, or wrong type like a name landing
+    // in a uuid field) and retries — so the lender always saves with
+    // whatever columns the table can actually accept.
+    const { error } = await upsertResilient("lenders", toDbLender(saved));
+    if (error) alert("Saved locally, but failed to sync to the database: " + error);
   };
 
   // Client handlers
@@ -4011,7 +4031,7 @@ export default function App() {
       saved = { ...form, id: editingClient.id, createdAt: editingClient.createdAt };
       setClients(cs => cs.map(c => c.id === editingClient.id ? saved : c));
     } else {
-      saved = { ...form, id: Date.now(), createdAt: new Date().toISOString().slice(0, 10) };
+      saved = { ...form, id: crypto.randomUUID(), createdAt: new Date().toISOString().slice(0, 10) };
       setClients(cs => [...cs, saved]);
     }
     setClientFormOpen(false);
@@ -4027,8 +4047,8 @@ export default function App() {
         setOrgFormOpen(true);
       }
     }
-    const { error } = await supabase.from("clients").upsert(toDbClient(saved));
-    if (error) alert("Failed to save contact: " + error.message);
+    const { error } = await upsertResilient("clients", toDbClient(saved));
+    if (error) alert("Saved locally, but failed to sync to the database: " + error);
   };
   const handleClientEdit   = c  => { setEditingClient(c); setClientFormOpen(true); };
 
@@ -4047,8 +4067,8 @@ export default function App() {
   // Worker handlers
   const handleAddWorker = async w => {
     setWorkers(ws => [...ws, w]); // optimistic
-    const { error } = await supabase.from("workers").insert(toDbWorker(w));
-    if (error) { alert("Failed to add worker: " + error.message); setWorkers(ws => ws.filter(x => x.id !== w.id)); }
+    const { error } = await upsertResilient("workers", toDbWorker(w));
+    if (error) alert("Saved locally, but failed to sync to the database: " + error);
   };
 
   const handleDeleteWorker = async id => {
@@ -4070,7 +4090,7 @@ export default function App() {
       saved = { ...form, id: editingOrg.id };
       setOrgs(os => os.map(o => o.id === editingOrg.id ? saved : o));
     } else {
-      saved = { ...form, id: Date.now() };
+      saved = { ...form, id: crypto.randomUUID() };
       setOrgs(os => [...os, saved]);
     }
     setOrgFormOpen(false); setEditingOrg(null);
@@ -4080,8 +4100,8 @@ export default function App() {
       setAddOrgInline(null);
       setDealFormOpen(true);
     }
-    const { error } = await supabase.from("orgs").upsert(toDbOrg(saved));
-    if (error) alert("Failed to save organization: " + error.message);
+    const { error } = await upsertResilient("orgs", toDbOrg(saved));
+    if (error) alert("Saved locally, but failed to sync to the database: " + error);
   };
   const handleOrgEdit = o => { setEditingOrg(o); setOrgFormOpen(true); };
 
@@ -4098,12 +4118,12 @@ export default function App() {
       saved = { ...form, id: editingDeal.id, createdAt: editingDeal.createdAt };
       setDeals(ds => ds.map(d => d.id === editingDeal.id ? saved : d));
     } else {
-      saved = { ...form, id: Date.now(), createdAt: new Date().toISOString().slice(0, 10) };
+      saved = { ...form, id: crypto.randomUUID(), createdAt: new Date().toISOString().slice(0, 10) };
       setDeals(ds => [...ds, saved]);
     }
     setDealFormOpen(false); setEditingDeal(null);
-    const { error } = await supabase.from("deals").upsert(toDbDeal(saved));
-    if (error) alert("Failed to save deal: " + error.message);
+    const { error } = await upsertResilient("deals", toDbDeal(saved));
+    if (error) alert("Saved locally, but failed to sync to the database: " + error);
   };
   const handleDealEdit = d => { setEditingDeal(d); setDealFormOpen(true); };
 
@@ -4325,4 +4345,4 @@ export default function App() {
       </div>
     </>
   );
-                                              }
+}
