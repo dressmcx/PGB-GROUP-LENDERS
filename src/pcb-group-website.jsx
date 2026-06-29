@@ -54,7 +54,7 @@ const fromDbDeal = r => ({
 });
 
 const toDbLender = l => ({
-  id: l.id, name: l.name || "", category: l.category || "", location: l.location || "",
+  id: l.id, name: l.name || "", loan_officer: l.loanOfficer || "", category: l.category || "", location: l.location || "",
   email: l.email || "", emails: l.emails || [], phones: l.phones || [],
   assistant_name: l.assistantName || "", assistant_phones: l.assistantPhones || [], assistant_emails: l.assistantEmails || [],
   lender_type: l.lenderType || "", notes: l.notes || "",
@@ -64,7 +64,7 @@ const toDbLender = l => ({
   created_at: l.createdAt || new Date().toISOString().slice(0, 10),
 });
 const fromDbLender = r => ({
-  id: r.id, name: r.name || "", category: r.category, location: r.location,
+  id: r.id, name: r.name || "", loanOfficer: r.loan_officer || "", category: r.category, location: r.location,
   email: r.email || "", emails: r.emails || [], phones: r.phones || [],
   assistantName: r.assistant_name || "", assistantPhones: r.assistant_phones || [], assistantEmails: r.assistant_emails || [],
   lenderType: r.lender_type, notes: r.notes,
@@ -2107,7 +2107,7 @@ function LenderCard({ lender, onEdit, onDelete }) {
         }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: "bold", color: C.charcoal, fontSize: 14, fontFamily: "Georgia, serif" }}>{lender.name}</div>
-            <div style={{ color: "#999", fontSize: 11, marginTop: 2 }}>{lender.lenderType} · {lender.location}{lender.city ? ` · ${lender.city}` : ""}</div>
+            <div style={{ color: "#999", fontSize: 11, marginTop: 2 }}>{lender.loanOfficer ? `${lender.loanOfficer} · ` : ""}{lender.lenderType} · {lender.location}{lender.city ? ` · ${lender.city}` : ""}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
             <div style={{ textAlign: "right" }}>
@@ -2285,7 +2285,7 @@ function SearchView({ lenders, onEdit, onDelete, onAdd }) {
   const results = lenders
     .filter(l => {
       const qLow = q.toLowerCase();
-      const match = !q || [l.name, l.email, ...(l.emails || []), ...(l.phones || []).map(p => p?.number), l.lenderType, l.notes, String(l.rate), l.assistantName, ...(l.assistantEmails || []), ...(l.assistantPhones || []).map(p => p?.number)]
+      const match = !q || [l.name, l.loanOfficer, l.email, ...(l.emails || []), ...(l.phones || []).map(p => p?.number), l.lenderType, l.notes, String(l.rate), l.assistantName, ...(l.assistantEmails || []), ...(l.assistantPhones || []).map(p => p?.number)]
         .some(f => (f || "").toLowerCase().includes(qLow));
       return match && (catFilter === "All" || l.category === catFilter) && (locFilter === "All Locations" || l.location === locFilter);
     })
@@ -2345,6 +2345,7 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
   const initCategory = initial?.category || defaultCategory || "Permanent";
   const [form, setForm] = useState(initial ? {
     ...initial,
+    loanOfficer: initial.loanOfficer || "",
     emails: initial.emails || [],
     phones: initial.phones || [],
     assistantName: initial.assistantName || "",
@@ -2356,7 +2357,7 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
     category: initCategory,
     location: defaultLocation === "All Locations" ? "" : (defaultLocation || ""),
     address: "", city: "",
-    name: "", email: "", emails: [], phones: [],
+    name: "", loanOfficer: "", email: "", emails: [], phones: [],
     assistantName: "", assistantPhones: [], assistantEmails: [],
     lenderType: getLenderTypes(initCategory)[0],
     termsFileName: "",
@@ -2382,6 +2383,7 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
       <div style={{ background: "white", border: `1px solid ${C.ivoryDark}`, borderRadius: 14, padding: "24px 20px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <FormField label="Bank / Institution Name" value={form.name} onChange={v => set("name", v)} required span2 />
+          <FormField label="Loan Officer" value={form.loanOfficer} onChange={v => set("loanOfficer", v)} span2 />
           <FormField label="Email" type="email" value={form.email} onChange={v => set("email", v)} />
           <FormField label="City" value={form.city} onChange={v => set("city", v)} />
 
@@ -4375,4 +4377,4 @@ export default function App() {
       </div>
     </>
   );
-            }
+         }
