@@ -56,6 +56,7 @@ const fromDbDeal = r => ({
 const toDbLender = l => ({
   id: l.id, name: l.name || "", category: l.category || "", location: l.location || "",
   email: l.email || "", emails: l.emails || [], phones: l.phones || [],
+  assistant_name: l.assistantName || "", assistant_phones: l.assistantPhones || [], assistant_emails: l.assistantEmails || [],
   lender_type: l.lenderType || "", notes: l.notes || "",
   rate: l.rate || 0, min_loan: l.minLoan || 0, max_loan: l.maxLoan || 0,
   address: l.address || "", city: l.city || "", created_by: l.createdBy || "",
@@ -65,6 +66,7 @@ const toDbLender = l => ({
 const fromDbLender = r => ({
   id: r.id, name: r.name || "", category: r.category, location: r.location,
   email: r.email || "", emails: r.emails || [], phones: r.phones || [],
+  assistantName: r.assistant_name || "", assistantPhones: r.assistant_phones || [], assistantEmails: r.assistant_emails || [],
   lenderType: r.lender_type, notes: r.notes,
   rate: r.rate, minLoan: r.min_loan, maxLoan: r.max_loan,
   address: r.address || "", city: r.city || "", createdBy: r.created_by,
@@ -918,12 +920,21 @@ function TermsFileField({ label = "Terms & Conditions (PDF / Image)", fileData, 
   const menuRef = useRef();
   const isPdf = fileName && fileName.toLowerCase().endsWith(".pdf");
 
-  // Close menu on outside click
+  // Close menu on outside click, on scroll, or on resize/orientation-change —
+  // since the menu is position:fixed, it won't track the button as the page
+  // scrolls, so we close it rather than let it drift away from the button.
   useEffect(() => {
     if (!menuOpen) return;
-    const handler = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    const close = () => setMenuOpen(false);
+    const handler = e => { if (menuRef.current && !menuRef.current.contains(e.target)) close(); };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    window.addEventListener("scroll", close, true); // capture: also catches scroll inside the modal's own scroll container
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
   }, [menuOpen]);
 
   const handleFile = e => {
@@ -963,31 +974,31 @@ function TermsFileField({ label = "Terms & Conditions (PDF / Image)", fileData, 
         </div>
         {fileName && (
           <div ref={menuRef} style={{ position: "relative", flexShrink: 0 }}>
-            <button onClick={e => {
-                e.stopPropagation();
-                const rect = e.currentTarget.getBoundingClientRect();
-                setMenuOpen(v => !v);
-                // store coords for fixed dropdown
-                if (!menuOpen) {
-                  e.currentTarget.dataset.top = rect.bottom + window.scrollY + 6;
-                  e.currentTarget.dataset.right = window.innerWidth - rect.right;
-                }
-              }}
+            <button onClick={e => { e.stopPropagation(); setMenuOpen(v => !v); }}
               data-menu-btn="true"
               style={{ background: "none", border: `1px solid ${C.ivoryDark}`, borderRadius: 8, cursor: "pointer", color: "#666", fontSize: 16, padding: "4px 9px", lineHeight: 1, letterSpacing: 1 }}>
               ⋯
             </button>
             {menuOpen && (() => {
               const btn = menuRef.current?.querySelector('[data-menu-btn]');
-              const rect = btn ? btn.getBoundingClientRect() : { bottom: 0, right: 0 };
+              const rect = btn ? btn.getBoundingClientRect() : { bottom: 0, top: 0, right: 0 };
+              const MENU_HEIGHT = 96;  // approx height of the 2-item menu including divider
+              const MENU_WIDTH  = 140;
+              // position:fixed coordinates are already relative to the viewport —
+              // getBoundingClientRect() is too, so no scrollY/scrollX offset is added.
+              const openUpward = window.innerHeight - rect.bottom < MENU_HEIGHT + 12;
+              const pos = openUpward
+                ? { bottom: Math.max(8, window.innerHeight - rect.top + 6) }
+                : { top: rect.bottom + 6 };
+              const right = Math.max(8, window.innerWidth - rect.right);
               return (
                 <div className="anim-fade" style={{
                   position: "fixed",
-                  top: rect.bottom + window.scrollY + 6,
-                  right: window.innerWidth - rect.right,
+                  ...pos,
+                  right,
                   zIndex: 9999,
                   background: "white", borderRadius: 10, boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
-                  border: `1px solid ${C.ivoryDark}`, minWidth: 130, overflow: "hidden",
+                  border: `1px solid ${C.ivoryDark}`, minWidth: MENU_WIDTH, overflow: "hidden",
                 }}>
                   <button onClick={e => { e.stopPropagation(); setMenuOpen(false); ref.current?.click(); }}
                     style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "11px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif" }}>
@@ -2117,6 +2128,13 @@ function LenderCard({ lender, onEdit, onDelete }) {
               {(lender.phones || []).filter(p => p && p.number).map((p, i) => (
                 <div key={`phone-${i}`}><div style={fieldLabel}>{(p.tag || "PHONE").toUpperCase()}</div><a href={`tel:${p.number}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{p.number}</a></div>
               ))}
+              {lender.assistantName && <div style={{ gridColumn: "1/-1" }}><div style={fieldLabel}>ASSISTANT</div><div style={{ color: C.charcoal, fontSize: 13 }}>{lender.assistantName}</div></div>}
+              {(lender.assistantEmails || []).filter(Boolean).map((e, i) => (
+                <div key={`a-email-${i}`}><div style={fieldLabel}>ASSISTANT EMAIL</div><a href={`mailto:${e}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{e}</a></div>
+              ))}
+              {(lender.assistantPhones || []).filter(p => p && p.number).map((p, i) => (
+                <div key={`a-phone-${i}`}><div style={fieldLabel}>ASSISTANT {(p.tag || "PHONE").toUpperCase()}</div><a href={`tel:${p.number}`} style={{ color: C.charcoal, fontSize: 13, textDecoration: "none", borderBottom: `1px solid ${C.gold}` }}>{p.number}</a></div>
+              ))}
               {lender.termsFileName && <div style={{ gridColumn: "1/-1" }}><LenderTermsViewer fileName={lender.termsFileName} fileData={lender.termsFileData} /></div>}
               <div><div style={fieldLabel}>TYPE</div><div style={{ color: C.charcoal, fontSize: 13 }}>{lender.lenderType}</div></div>
               <div><div style={fieldLabel}>MIN LOAN</div><div style={{ color: C.charcoal, fontSize: 13 }}>${(lender.minLoan/1e6).toFixed(1)}M</div></div>
@@ -2267,7 +2285,7 @@ function SearchView({ lenders, onEdit, onDelete, onAdd }) {
   const results = lenders
     .filter(l => {
       const qLow = q.toLowerCase();
-      const match = !q || [l.name, l.email, ...(l.emails || []), ...(l.phones || []).map(p => p?.number), l.lenderType, l.notes, String(l.rate)]
+      const match = !q || [l.name, l.email, ...(l.emails || []), ...(l.phones || []).map(p => p?.number), l.lenderType, l.notes, String(l.rate), l.assistantName, ...(l.assistantEmails || []), ...(l.assistantPhones || []).map(p => p?.number)]
         .some(f => (f || "").toLowerCase().includes(qLow));
       return match && (catFilter === "All" || l.category === catFilter) && (locFilter === "All Locations" || l.location === locFilter);
     })
@@ -2329,6 +2347,9 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
     ...initial,
     emails: initial.emails || [],
     phones: initial.phones || [],
+    assistantName: initial.assistantName || "",
+    assistantPhones: initial.assistantPhones || [],
+    assistantEmails: initial.assistantEmails || [],
     termsFileData: initial.termsFileData || null,
     termsFileName: initial.termsFileName || "",
   } : {
@@ -2336,6 +2357,7 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
     location: defaultLocation === "All Locations" ? "" : (defaultLocation || ""),
     address: "", city: "",
     name: "", email: "", emails: [], phones: [],
+    assistantName: "", assistantPhones: [], assistantEmails: [],
     lenderType: getLenderTypes(initCategory)[0],
     termsFileName: "",
     termsFileData: null,
@@ -2365,6 +2387,14 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
 
           <MultiPhoneField phones={form.phones} onChange={v => set("phones", v)} />
           <MultiEmailField emails={form.emails} onChange={v => set("emails", v)} />
+
+          {/* Assistant contact — same multi phone/email pattern as the main lender contact */}
+          <div style={{ gridColumn: "1/-1", borderTop: `1px dashed ${C.ivoryDark}`, paddingTop: 16, marginTop: 4 }}>
+            <div style={{ fontSize: 10, fontWeight: "bold", color: C.goldDark, letterSpacing: 2, marginBottom: 12 }}>ASSISTANT CONTACT (OPTIONAL)</div>
+          </div>
+          <FormField label="Assistant Name" value={form.assistantName} onChange={v => set("assistantName", v)} span2 />
+          <MultiPhoneField label="ASSISTANT PHONE NUMBERS" phones={form.assistantPhones} onChange={v => set("assistantPhones", v)} />
+          <MultiEmailField label="ASSISTANT EMAIL ADDRESSES" emails={form.assistantEmails} onChange={v => set("assistantEmails", v)} />
 
           {/* Category first — drives lender type dropdown */}
           <div>
@@ -3074,13 +3104,13 @@ function SettingsView({ workers, onAddWorker, onDeleteWorker, onUpdateWorker }) 
 // MULTI-ENTRY PHONE FIELD
 // ─────────────────────────────────────────────────────────────
 const PHONE_TAGS = ["Work", "Home", "Mobile", "Fax", "Custom"];
-function MultiPhoneField({ phones, onChange }) {
+function MultiPhoneField({ phones, onChange, label = "PHONE NUMBERS" }) {
   const add = () => onChange([...phones, { number: "", tag: "Work" }]);
   const upd = (i, k, v) => { const a = phones.map((p,j) => j===i ? {...p,[k]:v} : p); onChange(a); };
   const del = i => onChange(phones.filter((_,j) => j!==i));
   return (
     <div style={{ gridColumn: "1/-1" }}>
-      <div style={fieldLabel}>PHONE NUMBERS</div>
+      <div style={fieldLabel}>{label}</div>
       {phones.map((p,i) => (
         <div key={i} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
           <input value={p.number} onChange={e=>upd(i,"number",e.target.value)} placeholder="Phone number"
@@ -3103,13 +3133,13 @@ function MultiPhoneField({ phones, onChange }) {
 // ─────────────────────────────────────────────────────────────
 // MULTI-ENTRY EMAIL FIELD
 // ─────────────────────────────────────────────────────────────
-function MultiEmailField({ emails, onChange }) {
+function MultiEmailField({ emails, onChange, label = "EMAIL ADDRESSES" }) {
   const add = () => onChange([...emails, ""]);
   const upd = (i,v) => onChange(emails.map((e,j)=>j===i?v:e));
   const del = i => onChange(emails.filter((_,j)=>j!==i));
   return (
     <div style={{ gridColumn: "1/-1" }}>
-      <div style={fieldLabel}>EMAIL ADDRESSES</div>
+      <div style={fieldLabel}>{label}</div>
       {emails.map((e,i) => (
         <div key={i} style={{ display:"flex", gap:8, marginBottom:8, alignItems:"center" }}>
           <input type="email" value={e} onChange={ev=>upd(i,ev.target.value)} placeholder="Email address"
@@ -4345,4 +4375,4 @@ export default function App() {
       </div>
     </>
   );
-}
+            }
