@@ -36,7 +36,7 @@ const fromDbOrg = r => ({
 const toDbDeal = d => ({
   id: d.id, contact_id: d.contactId || null, org_id: d.orgId || null,
   address: d.address || "", value: d.value || 0, closing_date: d.closingDate || "",
-  created_by: d.createdBy || "", deal_type: d.dealType || "Regular",
+  created_by: d.createdBy || null, deal_type: d.dealType || "Regular",
   deal_stage: d.dealStage || "intake", payment_amount: d.paymentAmount || 0,
   visible_to: d.visibleTo || "all", notes: d.notes || "",
   created_at: d.createdAt || new Date().toISOString().slice(0, 10),
@@ -59,7 +59,7 @@ const toDbLender = l => ({
   assistant_name: l.assistantName || "", assistant_phones: l.assistantPhones || [], assistant_emails: l.assistantEmails || [],
   lender_type: l.lenderType || "", notes: l.notes || "",
   rate: l.rate || 0, min_loan: l.minLoan || 0, max_loan: l.maxLoan || 0,
-  address: l.address || "", city: l.city || "", created_by: l.createdBy || "",
+  address: l.address || "", city: l.city || "", created_by: l.createdBy || null,
   terms_file_name: l.termsFileName || "", terms_file_data: l.termsFileData || null,
   created_at: l.createdAt || new Date().toISOString().slice(0, 10),
 });
@@ -102,9 +102,9 @@ async function upsertResilient(table, payload) {
       p = rest;
       continue; // retry without that column
     }
-    const badValue = /invalid input syntax for type \w+: "([^"]+)"|invalid input syntax for type \w+: '([^']+)'/.exec(msg);
+    const badValue = /invalid input syntax for type \w+: "([^"]*)"|invalid input syntax for type \w+: '([^']*)'/.exec(msg);
     if (badValue) {
-      const offending = badValue[1] || badValue[2];
+      const offending = badValue[1] !== undefined ? badValue[1] : badValue[2];
       const culpritKey = Object.keys(p).find(k => String(p[k]) === offending);
       if (culpritKey) {
         const { [culpritKey]: _drop, ...rest } = p;
@@ -4377,4 +4377,4 @@ export default function App() {
       </div>
     </>
   );
-         }
+}
