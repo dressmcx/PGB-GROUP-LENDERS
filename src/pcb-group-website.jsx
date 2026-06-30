@@ -54,7 +54,8 @@ const fromDbDeal = r => ({
 });
 
 const toDbLender = l => ({
-  id: l.id, name: l.name || "", loan_officer: l.loanOfficer || "", category: l.category || "", location: l.location || "",
+  id: l.id, name: l.name || "", loan_officer: l.loanOfficer || "", category: l.category || "",
+  location: l.location || "", locations: Array.isArray(l.locations) ? l.locations : (l.location ? [l.location] : []),
   email: l.email || "", emails: l.emails || [], phones: l.phones || [],
   assistant_name: l.assistantName || "", assistant_phones: l.assistantPhones || [], assistant_emails: l.assistantEmails || [],
   lender_type: l.lenderType || "", notes: l.notes || "",
@@ -63,16 +64,20 @@ const toDbLender = l => ({
   terms_file_name: l.termsFileName || "", terms_file_data: l.termsFileData || null,
   created_at: l.createdAt || new Date().toISOString().slice(0, 10),
 });
-const fromDbLender = r => ({
-  id: r.id, name: r.name || "", loanOfficer: r.loan_officer || "", category: r.category, location: r.location,
-  email: r.email || "", emails: r.emails || [], phones: r.phones || [],
-  assistantName: r.assistant_name || "", assistantPhones: r.assistant_phones || [], assistantEmails: r.assistant_emails || [],
-  lenderType: r.lender_type, notes: r.notes,
-  rate: r.rate, minLoan: r.min_loan, maxLoan: r.max_loan,
-  address: r.address || "", city: r.city || "", createdBy: r.created_by,
-  termsFileName: r.terms_file_name, termsFileData: r.terms_file_data,
-  createdAt: r.created_at,
-});
+const fromDbLender = r => {
+  const locs = Array.isArray(r.locations) && r.locations.length ? r.locations : (r.location ? [r.location] : []);
+  return {
+    id: r.id, name: r.name || "", loanOfficer: r.loan_officer || "", category: r.category, location: r.location || "",
+    locations: locs,
+    email: r.email || "", emails: r.emails || [], phones: r.phones || [],
+    assistantName: r.assistant_name || "", assistantPhones: r.assistant_phones || [], assistantEmails: r.assistant_emails || [],
+    lenderType: r.lender_type, notes: r.notes,
+    rate: r.rate, minLoan: r.min_loan, maxLoan: r.max_loan,
+    address: r.address || "", city: r.city || "", createdBy: r.created_by,
+    termsFileName: r.terms_file_name, termsFileData: r.terms_file_data,
+    createdAt: r.created_at,
+  };
+};
 
 const toDbWorker = w => ({
   id: w.id, name: w.name, email: w.email, password: w.password,
@@ -353,11 +358,11 @@ function ConfirmModal({ title, message, confirmLabel = "Confirm", danger, onConf
 // ─────────────────────────────────────────────────────────────
 function ThreeDotMenu({ items }) {
   const [open, setOpen]     = useState(false);
-  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 0, openUp: false });
   const btnRef  = useRef(null);
   const dropRef = useRef(null);
 
-  // Close on outside click/tap
+  // Close on outside click/tap AND on any scroll (menu is fixed, can't track button while scrolling)
   useEffect(() => {
     if (!open) return;
     const close = e => {
@@ -366,27 +371,40 @@ function ThreeDotMenu({ items }) {
         btnRef.current  && !btnRef.current.contains(e.target)
       ) setOpen(false);
     };
-    document.addEventListener("mousedown", close, true);
-    document.addEventListener("touchstart", close, true);
+    const closeOnScroll = () => setOpen(false);
+    document.addEventListener("mousedown",  close,         true);
+    document.addEventListener("touchstart", close,         true);
+    window .addEventListener("scroll",      closeOnScroll, true); // capture catches inner-scroll too
+    window .addEventListener("resize",      closeOnScroll);
     return () => {
-      document.removeEventListener("mousedown", close, true);
-      document.removeEventListener("touchstart", close, true);
+      document.removeEventListener("mousedown",  close,         true);
+      document.removeEventListener("touchstart", close,         true);
+      window .removeEventListener("scroll",      closeOnScroll, true);
+      window .removeEventListener("resize",      closeOnScroll);
     };
   }, [open]);
 
   const toggle = e => {
     e.stopPropagation();
     if (!btnRef.current) return;
-    const rect      = btnRef.current.getBoundingClientRect();
-    const dropW     = 170; // estimated dropdown width
-    const gap       = 4;
+    const rect     = btnRef.current.getBoundingClientRect();
+    const dropW    = 178;
+    const dropH    = items.length * 46 + 8; // approx height per item
+    const gap      = 4;
+    const vw       = window.innerWidth;
+    const vh       = window.innerHeight;
 
-    // Prefer left-aligned with button; flip left if would overflow right edge
-    let left = rect.left;
-    if (left + dropW > window.innerWidth - 8) left = rect.right - dropW;
+    // Horizontal: prefer right-edge of button; clamp so it never clips screen edge
+    let left = rect.right - dropW;
+    if (left < 8)          left = Math.min(rect.left, vw - dropW - 8);
+    if (left + dropW > vw - 8) left = vw - dropW - 8;
     left = Math.max(8, left);
 
-    setCoords({ top: rect.bottom + gap, left });
+    // Vertical: open downward unless there isn't enough room below
+    const openUp = vh - rect.bottom < dropH + gap + 16;
+    const top    = openUp ? rect.top - dropH - gap : rect.bottom + gap;
+
+    setCoords({ top, left, openUp });
     setOpen(v => !v);
   };
 
@@ -433,7 +451,7 @@ function ThreeDotMenu({ items }) {
             border: `1px solid ${C.ivoryDark}`,
             borderRadius: 10,
             boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)",
-            minWidth: 170,
+            minWidth: 178,
             overflow: "hidden",
           }}
         >
@@ -2107,7 +2125,7 @@ function LenderCard({ lender, onEdit, onDelete }) {
         }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: "bold", color: C.charcoal, fontSize: 14, fontFamily: "Georgia, serif" }}>{lender.name}</div>
-            <div style={{ color: "#999", fontSize: 11, marginTop: 2 }}>{lender.loanOfficer ? `${lender.loanOfficer} · ` : ""}{lender.lenderType} · {lender.location}{lender.city ? ` · ${lender.city}` : ""}</div>
+            <div style={{ color: "#999", fontSize: 11, marginTop: 2 }}>{lender.loanOfficer ? `${lender.loanOfficer} · ` : ""}{lender.lenderType} · {(lender.locations && lender.locations.length ? lender.locations : lender.location ? [lender.location] : []).join(", ") || "—"}{lender.city ? ` · ${lender.city}` : ""}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
             <div style={{ textAlign: "right" }}>
@@ -2280,14 +2298,22 @@ function LenderList({ lenders, category, location, onEdit, onDelete, onAdd, onBa
 function SearchView({ lenders, onEdit, onDelete, onAdd }) {
   const [q, setQ]           = useState("");
   const [catFilter, setCat] = useState("All");
-  const [locFilter, setLoc] = useState("All Locations");
+  const [locFilter, setLoc] = useState("");   // empty = no filter (show all)
+
+  // Build location list dynamically from actual lender data
+  const allLocs = [...new Set(
+    lenders.flatMap(l => Array.isArray(l.locations) && l.locations.length ? l.locations : l.location ? [l.location] : [])
+  )].filter(Boolean).sort();
 
   const results = lenders
     .filter(l => {
       const qLow = q.toLowerCase();
       const match = !q || [l.name, l.loanOfficer, l.email, ...(l.emails || []), ...(l.phones || []).map(p => p?.number), l.lenderType, l.notes, String(l.rate), l.assistantName, ...(l.assistantEmails || []), ...(l.assistantPhones || []).map(p => p?.number)]
         .some(f => (f || "").toLowerCase().includes(qLow));
-      return match && (catFilter === "All" || l.category === catFilter) && (locFilter === "All Locations" || l.location === locFilter);
+      // Location filter: match against the full locations array
+      const locs = Array.isArray(l.locations) && l.locations.length ? l.locations : l.location ? [l.location] : [];
+      const locMatch = !locFilter || locs.includes(locFilter);
+      return match && (catFilter === "All" || l.category === catFilter) && locMatch;
     })
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
@@ -2323,7 +2349,8 @@ function SearchView({ lenders, onEdit, onDelete, onAdd }) {
           </select>
           <select value={locFilter} onChange={e => setLoc(e.target.value)}
             style={{ flex: 1, minWidth: 130, padding: "9px 12px", background: C.bg, border: `1.5px solid ${C.ivoryDark}`, borderRadius: 8, fontSize: 12, cursor: "pointer" }}>
-            {LOCATIONS.map(l => <option key={l}>{l}</option>)}
+            <option value="">All Locations</option>
+            {allLocs.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         </div>
       </div>
@@ -2339,13 +2366,136 @@ function SearchView({ lenders, onEdit, onDelete, onAdd }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// LOCATION MULTI-SELECT — type-to-search existing, create new,
+// multi-pick, carry-over text. Used by LenderForm.
+// ─────────────────────────────────────────────────────────────
+function LocationMultiSelect({ selected = [], onChange, allLenders = [] }) {
+  const [inputVal, setInputVal] = useState("");
+  const [focused, setFocused]   = useState(false);
+  const wrapRef = useRef(null);
+
+  // Build unique location list from all existing lenders (dynamic, not hardcoded)
+  const allLocs = [...new Set(
+    allLenders.flatMap(l => Array.isArray(l.locations) && l.locations.length ? l.locations : l.location ? [l.location] : [])
+  )].filter(Boolean).sort();
+
+  const trimmed = inputVal.trim();
+  const suggestions = allLocs.filter(loc =>
+    loc.toLowerCase().includes(trimmed.toLowerCase()) && !selected.includes(loc)
+  );
+  const showCreate = trimmed && !allLocs.some(l => l.toLowerCase() === trimmed.toLowerCase()) && !selected.includes(trimmed);
+  const showDropdown = focused && (suggestions.length > 0 || showCreate);
+
+  const add = val => {
+    const v = val.trim();
+    if (v && !selected.includes(v)) onChange([...selected, v]);
+    setInputVal("");
+  };
+  const remove = loc => onChange(selected.filter(l => l !== loc));
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setFocused(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div style={{ gridColumn: "1/-1" }} ref={wrapRef}>
+      <div style={fieldLabel}>LOCATION / STATE(S)</div>
+
+      {/* Selected tags */}
+      {selected.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+          {selected.map(loc => (
+            <span key={loc} style={{
+              display: "inline-flex", alignItems: "center", gap: 5,
+              padding: "4px 10px 4px 12px", background: `${C.goldDark}18`,
+              border: `1px solid ${C.goldDark}55`, borderRadius: 20,
+              fontSize: 12, color: C.charcoal, fontFamily: "Georgia, serif",
+            }}>
+              {loc}
+              <button onClick={() => remove(loc)} style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: C.danger, fontSize: 14, lineHeight: 1, padding: "0 2px",
+              }}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Input + dropdown */}
+      <div style={{ position: "relative" }}>
+        <input
+          type="text"
+          placeholder={selected.length ? "Add another state…" : "Type to search or create a location…"}
+          value={inputVal}
+          onChange={e => { setInputVal(e.target.value); setFocused(true); }}
+          onFocus={() => setFocused(true)}
+          onKeyDown={e => {
+            if ((e.key === "Enter" || e.key === ",") && trimmed) { e.preventDefault(); add(trimmed); }
+            if (e.key === "Backspace" && !inputVal && selected.length) remove(selected[selected.length - 1]);
+          }}
+          style={{ ...inputStyle, paddingRight: 36 }}
+        />
+        {inputVal && (
+          <button onClick={() => setInputVal("")} style={{
+            position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+            background: "none", border: "none", color: "#aaa", fontSize: 16, cursor: "pointer", lineHeight: 1,
+          }}>×</button>
+        )}
+        {showDropdown && (
+          <div style={{
+            position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+            background: "white", border: `1.5px solid ${C.goldDark}88`, borderRadius: 10,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.14)", zIndex: 9999, overflow: "hidden",
+          }}>
+            {suggestions.map(loc => (
+              <button key={loc} onMouseDown={e => { e.preventDefault(); add(loc); }}
+                style={{
+                  display: "block", width: "100%", padding: "11px 14px", background: "none",
+                  border: "none", borderBottom: `1px solid ${C.ivory}`, cursor: "pointer",
+                  fontSize: 13, color: C.charcoal, textAlign: "left", fontFamily: "Georgia, serif",
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = C.bg}
+                onMouseLeave={e => e.currentTarget.style.background = "none"}
+              >
+                📍 {loc}
+              </button>
+            ))}
+            {showCreate && (
+              <button onMouseDown={e => { e.preventDefault(); add(trimmed); }}
+                style={{
+                  display: "block", width: "100%", padding: "11px 14px", background: `${C.goldDark}0A`,
+                  border: "none", cursor: "pointer",
+                  fontSize: 13, color: C.goldDark, textAlign: "left", fontFamily: "Georgia, serif",
+                  fontStyle: "italic",
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = `${C.goldDark}18`}
+                onMouseLeave={e => e.currentTarget.style.background = `${C.goldDark}0A`}
+              >
+                ＋ Create "{trimmed}" as a new location
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      <div style={{ fontSize: 10, color: "#aaa", marginTop: 5 }}>
+        Press Enter or comma to add · Backspace to remove last
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // LENDER FORM
 // ─────────────────────────────────────────────────────────────
-function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCancel, currentUser }) {
+function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCancel, currentUser, allLenders = [] }) {
   const initCategory = initial?.category || defaultCategory || "Permanent";
   const [form, setForm] = useState(initial ? {
     ...initial,
     loanOfficer: initial.loanOfficer || "",
+    locations: Array.isArray(initial.locations) && initial.locations.length ? initial.locations : initial.location ? [initial.location] : [],
     emails: initial.emails || [],
     phones: initial.phones || [],
     assistantName: initial.assistantName || "",
@@ -2355,7 +2505,7 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
     termsFileName: initial.termsFileName || "",
   } : {
     category: initCategory,
-    location: defaultLocation === "All Locations" ? "" : (defaultLocation || ""),
+    location: "", locations: defaultLocation && defaultLocation !== "All Locations" ? [defaultLocation] : [],
     address: "", city: "",
     name: "", loanOfficer: "", email: "", emails: [], phones: [],
     assistantName: "", assistantPhones: [], assistantEmails: [],
@@ -2428,7 +2578,7 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
             </select>
           </div>
 
-          <FormField label="Location / State" value={form.location} onChange={v => set("location", v)} />
+          <LocationMultiSelect selected={form.locations} onChange={v => set("locations", v)} allLenders={allLenders} />
           <AddressField label="Address" value={form.address || ""} onChange={v => set("address", v)} span2 />
           <FormField label="Interest Rate (%)" type="number" step="0.01" value={form.rate} onChange={v => set("rate", v)} />
           <FormField label="Min Loan ($)" type="number" value={form.minLoan} onChange={v => set("minLoan", v)} />
@@ -2465,7 +2615,7 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
           <button onClick={onCancel} className="btn-transition" style={{ flex: 1, padding: "13px", background: "white", border: `1.5px solid ${C.ivoryDark}`, borderRadius: 12, cursor: "pointer", fontSize: 13, color: C.charcoal }}>Cancel</button>
           <button onClick={() => {
             if (!form.name) { alert("Bank / Institution name required."); return; }
-            onSave({ ...form, rate: parseFloat(form.rate) || 0, minLoan: parseInt(form.minLoan) || 0, maxLoan: parseInt(form.maxLoan) || 0 });
+            onSave({ ...form, rate: parseFloat(form.rate) || 0, minLoan: parseInt(form.minLoan) || 0, maxLoan: parseInt(form.maxLoan) || 0, locations: form.locations || [], location: (form.locations || [])[0] || form.location || "" });
           }} className="btn-transition" style={{ flex: 2, padding: "13px", background: C.goldDark, color: "white", border: "none", borderRadius: 12, cursor: "pointer", fontSize: 13, fontWeight: "bold", letterSpacing: 1 }}>
             {initial ? "SAVE CHANGES" : "ADD LENDER"}
           </button>
@@ -3376,9 +3526,11 @@ function OrgsView({ orgs, onAdd, onEdit, onDelete }) {
                   </span>
                 </div>
               </div>
-              <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                <button onClick={()=>onEdit(o)} className="btn-transition" style={{ padding:"7px 12px", background:C.charcoal, color:C.gold, border:"none", borderRadius:8, cursor:"pointer", fontSize:11 }}>EDIT</button>
-                <button onClick={()=>setConfirmDel(o)} style={{ background:"none", border:"none", color:C.danger, cursor:"pointer", fontSize:11, textDecoration:"underline", padding:"7px 4px" }}>Delete</button>
+              <div style={{ display:"flex", gap:6, flexShrink:0, alignItems:"center" }}>
+                <ThreeDotMenu items={[
+                  { icon: "✏️", label: "Edit Organization", onClick: () => onEdit(o) },
+                  { icon: "🗑",  label: "Delete",             onClick: () => setConfirmDel(o), danger: true },
+                ]} />
               </div>
             </div>
 
@@ -4270,7 +4422,7 @@ export default function App() {
     switch (view) {
       case "form":
         return <LenderForm initial={editingLender} defaultCategory={selectedCategory} defaultLocation={selectedLocation}
-          onSave={handleLenderSave} onCancel={() => setView("search")} currentUser={user} />;
+          onSave={handleLenderSave} onCancel={() => setView("search")} currentUser={user} allLenders={lenders} />;
       case "search":
         return <SearchView lenders={lenders} onEdit={handleLenderEdit} onDelete={handleLenderDelete} onAdd={handleLenderAdd} />;
       case "lenders":
@@ -4377,4 +4529,4 @@ export default function App() {
       </div>
     </>
   );
-}
+  }
