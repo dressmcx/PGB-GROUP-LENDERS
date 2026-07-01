@@ -2155,8 +2155,8 @@ function LenderCard({ lender, onEdit, onDelete }) {
               ))}
               {lender.termsFileName && <div style={{ gridColumn: "1/-1" }}><LenderTermsViewer fileName={lender.termsFileName} fileData={lender.termsFileData} /></div>}
               <div><div style={fieldLabel}>TYPE</div><div style={{ color: C.charcoal, fontSize: 13 }}>{lender.lenderType}</div></div>
-              <div><div style={fieldLabel}>MIN LOAN</div><div style={{ color: C.charcoal, fontSize: 13 }}>${(lender.minLoan/1e6).toFixed(1)}M</div></div>
-              <div><div style={fieldLabel}>MAX LOAN</div><div style={{ color: C.charcoal, fontSize: 13 }}>${(lender.maxLoan/1e6).toFixed(1)}M</div></div>
+              <div><div style={fieldLabel}>MIN LOAN</div><div style={{ color: C.charcoal, fontSize: 13 }}>{lender.minLoan ? "$" + Number(lender.minLoan).toLocaleString("fr-FR").replace(/,/g, " ") : "—"}</div></div>
+              <div><div style={fieldLabel}>MAX LOAN</div><div style={{ color: C.charcoal, fontSize: 13 }}>{lender.maxLoan ? "$" + Number(lender.maxLoan).toLocaleString("fr-FR").replace(/,/g, " ") : "—"}</div></div>
               {lender.createdBy && (
                 <div>
                   <div style={fieldLabel}>CREATED BY</div>
@@ -2580,9 +2580,62 @@ function LenderForm({ initial, defaultCategory, defaultLocation, onSave, onCance
 
           <LocationMultiSelect selected={form.locations} onChange={v => set("locations", v)} allLenders={allLenders} />
           <AddressField label="Address" value={form.address || ""} onChange={v => set("address", v)} span2 />
-          <FormField label="Interest Rate (%)" type="number" step="0.01" value={form.rate} onChange={v => set("rate", v)} />
-          <FormField label="Min Loan ($)" type="number" value={form.minLoan} onChange={v => set("minLoan", v)} />
-          <FormField label="Max Loan ($)" type="number" value={form.maxLoan} onChange={v => set("maxLoan", v)} />
+          {/* Interest Rate — appends % as user types, stores raw number */}
+          <div>
+            <div style={fieldLabel}>INTEREST RATE (%)</div>
+            <div style={{ position: "relative" }}>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="e.g. 6.5%"
+                value={form.rate === "" ? "" : `${form.rate}%`}
+                onChange={e => {
+                  const raw = e.target.value.replace(/%/g, "").replace(/[^0-9.]/g, "");
+                  // prevent more than one decimal point
+                  const parts = raw.split(".");
+                  const clean = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : raw;
+                  set("rate", clean);
+                }}
+                onBlur={e => {
+                  // clean up trailing dot on blur  e.g. "6." → "6"
+                  set("rate", String(form.rate).replace(/\.$/, ""));
+                }}
+                style={{ ...inputStyle, paddingRight: 32 }}
+              />
+            </div>
+          </div>
+
+          {/* Min Loan — space-separated thousands, $ prefix */}
+          <div>
+            <div style={fieldLabel}>MIN LOAN ($)</div>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="$0"
+              value={form.minLoan === "" ? "" : "$" + String(parseInt(String(form.minLoan).replace(/[^0-9]/g, "")) || "").replace(/\B(?=(\d{3})+(?!\d))/g, " ")}
+              onChange={e => {
+                const digits = e.target.value.replace(/[^0-9]/g, "");
+                set("minLoan", digits);
+              }}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Max Loan — space-separated thousands, $ prefix */}
+          <div>
+            <div style={fieldLabel}>MAX LOAN ($)</div>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="$0"
+              value={form.maxLoan === "" ? "" : "$" + String(parseInt(String(form.maxLoan).replace(/[^0-9]/g, "")) || "").replace(/\B(?=(\d{3})+(?!\d))/g, " ")}
+              onChange={e => {
+                const digits = e.target.value.replace(/[^0-9]/g, "");
+                set("maxLoan", digits);
+              }}
+              style={inputStyle}
+            />
+          </div>
 
           {/* Enhanced Terms & Conditions with view/download */}
           <TermsFileField
