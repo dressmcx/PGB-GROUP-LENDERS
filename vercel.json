@@ -15,6 +15,10 @@
       "source": "/(.*)",
       "headers": [
         {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://hplqwdimaxjapgtbihrn.supabase.co wss://hplqwdimaxjapgtbihrn.supabase.co https://places.googleapis.com; frame-src 'self' data: blob:; object-src 'self' data: blob:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        },
+        {
           "key": "X-Frame-Options",
           "value": "DENY"
         },
