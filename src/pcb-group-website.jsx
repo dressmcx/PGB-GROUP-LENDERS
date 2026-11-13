@@ -4,7 +4,7 @@ import { supabase } from "./supabaseClient";
 // ═══════════════════════════════════════════════════════════════
 // GOOGLE MAPS KEY — paste your key between the quotes on the line
 // below (it should start with AIza). Keep the quotes.
-const GOOGLE_MAPS_KEY = "";
+const GOOGLE_MAPS_KEY = "AIzaSyDt2p6RQMmpLXJMWCZPe_cBlcClSn3ipM8";
 // ═══════════════════════════════════════════════════════════════
 
 // ─────────────────────────────────────────────────────────────
